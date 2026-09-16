@@ -36,11 +36,12 @@ dsh-refix 是 **DSH（DeepSeek Harness，自研宿主，暂未公开）** 的**�
 versions/        # 插件版本源码（plain JS 函数体，经 cordis_define 挂载）
   refix-v1-p0.js       # v1：契约探测 + 基线 + inspect provider + refix_report
   refix-v2-p1.js       # v2：事件订阅 + 周期巡检 + 五类症状识别
-  refix-v3-p2.js       # v3（当前）：策略表处方 + refix_repair + 观察窗 + 自动回退
+  refix-v3-p2.js       # v3：策略表处方 + refix_repair + 观察窗 + 自动回退
+  refix-v4-p3.js       # v4（当前）：F4 内存态知识库 + 历史方案复用 + 失败学习
   patient-v1.js        # 验收用患者插件（带 health host 方法）
   patient-v2-broken.js # 故障注入夹具（health 必现抛错）
 ac/              # 验收脚本（真实 cordis Context + DynamicCordisRunnerService，不 mock runner）
-reports/         # 分阶段验收报告（P0 / P1）
+reports/         # 分阶段验收报告（P0 / P1 / P2 / P3）
 ```
 
 ## 快速开始
@@ -76,7 +77,7 @@ node --import "file://<DSH-checkout>/node_modules/tsx/dist/loader.mjs" ac/p2.ac.
 | P0 骨架 | 定义+运行、契约探测、inspect provider | ✅ 验收通过 |
 | P1 诊断 | 事件订阅 + 周期巡检 + 症状识别 | ✅ 验收通过 |
 | P2 修复 | 策略表 + 版本切换 + 观察窗 + 自动回退 | ✅ 验收通过 |
-| P3 迭代 | 知识库 + 历史方案复用 | 🚧 规划中 |
+| P3 迭代 | 知识库 + 历史方案复用 + 失败学习 | ✅ 验收通过 |
 
 ## License
 
