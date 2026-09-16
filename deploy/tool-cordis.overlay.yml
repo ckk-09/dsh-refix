@@ -1,0 +1,5 @@
+# dsh-refix 真机冒烟用一次性 overlay：为 headless 单次运行挂载 tool-cordis 工具组
+# 用法：dsh --profile headless --patch <本文件> "<任务>"
+- insert:
+    - id: tool-cordis
+      name: '@deepseek-ai/dsh-tool-cordis'
