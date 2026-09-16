@@ -37,14 +37,16 @@ versions/        # 插件版本源码（plain JS 函数体，经 cordis_define �
   refix-v1-p0.js       # v1：契约探测 + 基线 + inspect provider + refix_report
   refix-v2-p1.js       # v2：事件订阅 + 周期巡检 + 五类症状识别
   refix-v3-p2.js       # v3：策略表处方 + refix_repair + 观察窗 + 自动回退
-  refix-v4-p3.js       # v4（当前）：F4 内存态知识库 + 历史方案复用 + 失败学习
+  refix-v4-p3.js       # v4：F4 内存态知识库 + 历史方案复用 + 失败学习
+  refix-v5-p3r.js      # v5（当前，p3.2）：代码审查修复版（见 reports/P3R.md）
   patient-v1.js        # 验收用患者插件（带 health host 方法）
   patient-v2-broken.js # 故障注入夹具（health 必现抛错）
 ac/              # 验收脚本（真实 cordis Context + DynamicCordisRunnerService，不 mock runner）
   p0~p3.ac.mts         # 分阶段验收
+  p3r.ac.mts           # 审查修复版验收（挂起探针/热更新/自修复拒绝/参数边界）
   ac52.ac.mts          # AC5.2 契约不兼容显式测试（独立进程）
   bench.mts            # 共享 bench
-reports/         # 分阶段验收报告（P0 / P1 / P2 / P3 / P4）
+reports/         # 分阶段验收报告（P0 / P1 / P2 / P3 / P4 / P3R）
 deploy/          # 部署辅助：tool-cordis 工具组 overlay（真机冒烟用一次性 patch）
 ```
 
@@ -52,7 +54,7 @@ deploy/          # 部署辅助：tool-cordis 工具组 overlay（真机冒烟�
 
 在 DSH 会话中对模型说：
 
-> 用 cordis_define 定义并运行 dsh-refix，宿主半代码取自 `versions/refix-v4-p3.js`
+> 用 cordis_define 定义并运行 dsh-refix，宿主半代码取自 `versions/refix-v5-p3r.js`
 
 挂载后可用三个模型侧工具：
 
@@ -92,7 +94,7 @@ web profile 的 `patchReload: 'live'` 使该文件**保存即热加载**（confi
 | AC4.2 | 重启失忆为预期行为（知识库无持久化） | 各脚本独立进程 + p3 冷启动断言 ✅ |
 | AC5.2 | 契约不兼容 → 差异报告 + 全动作门控 | `ac/ac52.ac.mts` ✅ |
 
-全量回归（2026-09-16）：`p0/p1/p2/p3` 四脚本连跑 **4/4 PASS**。
+全量回归（2026-09-16）：`p0/p1/p2/p3/p3r/ac52` 六脚本连跑 **6/6 PASS**。
 
 ## 运行验收脚本
 
@@ -103,10 +105,20 @@ node --import "file://<DSH-checkout>/node_modules/tsx/dist/loader.mjs" ac/p0.ac.
 node --import "file://<DSH-checkout>/node_modules/tsx/dist/loader.mjs" ac/p1.ac.mts
 node --import "file://<DSH-checkout>/node_modules/tsx/dist/loader.mjs" ac/p2.ac.mts
 node --import "file://<DSH-checkout>/node_modules/tsx/dist/loader.mjs" ac/p3.ac.mts
+node --import "file://<DSH-checkout>/node_modules/tsx/dist/loader.mjs" ac/p3r.ac.mts
 node --import "file://<DSH-checkout>/node_modules/tsx/dist/loader.mjs" ac/ac52.ac.mts
 ```
 
-预期输出 `P0/P1/P2/P3 SELF-CHECK PASS` 与 `AC5.2 SELF-CHECK PASS`。注意脚本末尾 `process.exit(0)`：15s 巡检 interval 会吊住事件循环。
+预期输出各脚本 `SELF-CHECK PASS`。注意脚本末尾 `process.exit(0)`：15s 巡检 interval 会吊住事件循环。
+
+## 已知边界（如实声明，v1 范围外）
+
+- **F5 能力上限**：契约探测只探"方法存在性"——方法消失/改名可发现；**"名字在、签名变"不可发现**（V-12）
+- **权限模型**：修复以**目标插件归属会话**的授权执行，不校验调用者身份（V-11）——工具描述已同步声明
+- **插件删除无感**：插件被 `undefine` 后从 inventory 消失，不产生任何症状报告（删除属预期动作；V-9）
+- **审批后不回填**：`awaiting-approval` 的修复不入知识库，客户端半区修复成功暂无法复用（V-16，v2 候选）
+- **事件巡检不做去抖**（O-1 被否）：即时性是特性（事件当拍生效），批量操作下探针风暴由 dedup + probeSkipped + 2s 探针超时缓解
+- 不做 LLM 自由生成修复代码（未知症状转人工）；不持久化（重启即失忆）；不诊断 DSH 主进程；不做无人值守自动修复（审批门保留）；不从网络拉取代码。适配 DSH 升级的路径 = F5 契约报告 → 会话内重新 define 适配版 → 人审切换。
 
 ## 阶段状态
 
@@ -117,6 +129,7 @@ node --import "file://<DSH-checkout>/node_modules/tsx/dist/loader.mjs" ac/ac52.a
 | P2 修复 | 策略表 + 版本切换 + 观察窗 + 自动回退 | ✅ 验收通过 |
 | P3 迭代 | 知识库 + 历史方案复用 + 失败学习 | ✅ 验收通过 |
 | P4 收尾 | 全量回归 + 部署说明 + AC 矩阵 | ✅ 验收通过 |
+| P3R 审查修复 | 16 缺陷 + 7 优化逐条核验处置（v5 = p3.2） | ✅ 验收通过 |
 
 ## License
 
