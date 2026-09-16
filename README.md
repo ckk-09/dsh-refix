@@ -2,6 +2,8 @@
 
 **中文** | [English](#english)
 
+> 🚀 **第一次用？先看 [QUICKSTART.md](./QUICKSTART.md)** —— 面向零基础的上手指南：能不能开箱即用、怎么挂载、三个工具怎么用、`outcome` 怎么读、五个必踩的坑。
+
 dsh-refix 是 **DSH（DeepSeek Harness，自研宿主，暂未公开）** 的**自诊断 · 自修复 · 自迭代动态插件**。它本身就是一个动态 Cordis 插件（自举：由 DSH 会话经 `cordis_define` 定义并运行），能够：
 
 1. **诊断（F1）**：事件订阅 + 周期巡检（15s）+ 按需巡检，识别动态插件运行时症状并输出结构化报告；
@@ -33,6 +35,7 @@ dsh-refix 是 **DSH（DeepSeek Harness，自研宿主，暂未公开）** 的**�
 ## 目录结构
 
 ```
+QUICKSTART.md    # 零基础上手指南（挂载 / 工具用法 / 返回值解读 / 常见坑）
 versions/        # 插件版本源码（plain JS 函数体，经 cordis_define 挂载）
   refix-v1-p0.js       # v1：契约探测 + 基线 + inspect provider + refix_report
   refix-v2-p1.js       # v2：事件订阅 + 周期巡检 + 五类症状识别
@@ -59,6 +62,8 @@ deploy/          # 部署辅助：tool-cordis 工具组 overlay（真机冒烟�
 在 DSH 会话中对模型说：
 
 > 用 cordis_define 定义并运行 dsh-refix，宿主半代码取自 `versions/refix-v7-p3r3.js`
+
+**注意**：`cordis_define` 的 `code.host` 只接受**函数体字符串**（无文件路径参数），因此需让模型先读取该文件再原文传入；路径建议给绝对路径。完整话术与逐项排错见 **[QUICKSTART.md](./QUICKSTART.md)**。
 
 挂载后可用三个模型侧工具：
 
@@ -98,7 +103,7 @@ web profile 的 `patchReload: 'live'` 使该文件**保存即热加载**（confi
 | AC4.2 | 重启失忆为预期行为（知识库无持久化） | 各脚本独立进程 + p3 冷启动断言 ✅ |
 | AC5.2 | 契约不兼容 → 差异报告 + 全动作门控 | `ac/ac52.ac.mts` ✅ |
 
-全量回归（2026-09-16）：`p0/p1/p2/p3/p3r/p3r2/p3r3/ac52` 八脚本连跑 **8/8 PASS**。
+全量回归（2026-09-16）：`p0/p1/p2/p3/p3r/p3r2/p3r3/ac52` 八脚本连跑 **8/8 PASS**（第三方独立复跑复核，非作者自报；关键校验：`p3r2` 五项 checks 全 true，`p3r3` `p1NoBlind/channelBArchived` 为 true、`p4AbortMs=166`，`ac52` 契约不兼容门返回 `contract-incompatible`）。
 
 ## 运行验收脚本
 
@@ -165,7 +170,9 @@ Only manages dynamic Cordis plugins (in-memory Plugin/Package/Run). Diagnosis is
 
 In a DSH session, ask the model:
 
-> Define and run dsh-refix via cordis_define, host-side code from `versions/refix-v4-p3.js`
+> Define and run dsh-refix via cordis_define, host-side code from `versions/refix-v7-p3r3.js`
+
+See **[QUICKSTART.md](./QUICKSTART.md)** for the beginner-facing guide (mount wording, tool usage, reading `outcome`, common pitfalls).
 
 Then use the `refix_report` / `refix_patrol` / `refix_repair` tools. One-sentence self-check: **"Call refix_report and show me dsh-refix's self-check report"**.
 
