@@ -8,7 +8,7 @@ import { readFileSync } from 'node:fs'
 import { AGENT_A, callTool, defineAndRun, definePkg, refixReport, runPkg, setup, sleep } from './bench.mts'
 
 const REFIX_V6 = readFileSync(new URL('../versions/refix-v6-p3r2.js', import.meta.url), 'utf8')
-const REFIX_V7 = readFileSync(new URL('../versions/refix-v7-p3r3.js', import.meta.url), 'utf8')
+const REFIX_V7 = readFileSync(new URL('../versions/refix-v9-upd2.js', import.meta.url), 'utf8')
 const PATIENT_OK = readFileSync(new URL('../versions/patient-v1.js', import.meta.url), 'utf8')
 
 const h = await setup()

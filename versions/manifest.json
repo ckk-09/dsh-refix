@@ -1,0 +1,9 @@
+{
+  "latest": "p3.6",
+  "version": "v9",
+  "file": "versions/refix-v9-upd2.js",
+  "releasedAt": "2026-09-16",
+  "scheme": "refix-pX.Y",
+  "notes": "F6 阶段 2：更新提示附带执行手册（准确定位 pluginId/回滚 packageId）+ 外部文本隔离；仍不自动换版",
+  "url": "https://github.com/ckk-09/dsh-refix"
+}
