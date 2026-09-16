@@ -1,0 +1,9 @@
+# dsh-refix — DSH cordis 工具组挂载 patch（本仓库为 cordis-plugin 型插件仓库）
+# 用途：让 DSH 会话获得 cordis_* 工具组（cordis_define / cordis_run 等），
+#       这是挂载动态插件（含 dsh-refix 自身）的前提。
+# web profile：将下列 insert 追加到 ~/.dsh/profiles/web/cordis.patch.yml 的既有 insert: 列表
+#   （web profile patchReload: 'live'，保存即热加载，无需重启 dsh web）
+# headless 冒烟：dsh --profile headless --patch 本文件 "<任务>"
+- insert:
+    - id: tool-cordis
+      name: '@deepseek-ai/dsh-tool-cordis'
