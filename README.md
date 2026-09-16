@@ -167,7 +167,7 @@ node --import "file://<DSH-checkout>/node_modules/tsx/dist/loader.mjs" ac/upd3.a
 - **提示的真实渲染已在真实会话验证**（2026-09-16）：用一次性 overlay 在真实 host + 真实 agent loop + 真实模型上装载 v8 跑通，证据三层——① 宿主用真实常量请求版本源（`web.fetch intercepted`）；② 模型 reasoning 逐字引用提示文本与只存在于受控输入中的 nonce；③ **会话落盘记录**（`~/.dsh/sessions/<escaped-cwd>/session-<id>/session.v3.jsonl.zstd`）中该提示以 `type:"user/message"`、`source.plugin="dsh-refix"` 提交，`seq` 落在 `request/header` 之前（已进入模型请求面）。声明：验证中**只有"版本源这一跳"是受控替身**（overlay 覆盖了真 `ctx.web.fetch` 方法返回固定清单），其余路径全真实；v8 源码逐字节未改写。
 
 - **阶段 3（updater）只在 web 会话里可用**：批准门依赖**接听方**。`approval` 服务由 base bundle 无条件挂载（`packages/bundle/base/cordis.patch.yml` L224-227），但**浏览器接听方只在 `web-app` bundle**（同仓库 `packages/bundle/web-app/cordis.patch.yml` L252-253）。headless / 纯 CLI 有服务无接听方 → `unavailable` → **一律拒绝**（安全，但功能不可用）。
-- **阶段 3 的批准框本身未真机验证**：验收跑的是真 host 代码路径（真 `ToolRuntime.execute` → 真 `tools/pre-execute` waterfall → 真 `serviceAsk`）与真 ApprovalService **seam**（`ctx.provide('approval', …)`），**没有**真的开浏览器点 `ui-approval` 的按钮。这一条是本轮唯一未闭环的验证。
+- **阶段 3 的批准门已真机全链路验证**（2026-09-16）：headless 真会话 + 真模型 + 真 `cordis-host-runner`，overlay 注入四替身（版本源 / approval 接听方 / 目标种子 / updater 静态装载，源码逐字节不改写——仅 updater 的 `UPDATER_ENABLED` 常量内存单点替换为 true）。三个 run 覆盖三种结局：① **拒绝路径**：宿主 `tools/pre-execute` → `approval/request` 真实触发，reason 形状完整（版本对/sha256/回滚命令/RCE 声明），答案方拒后模型 fail-closed——不重试、不改走手动换版、report 佐证 `executions:[]`；② **放行路径**：答案方独立对"将执行的字节"算 sha256 前 16 位与 reason 比对成立 → `allowed-once` → `define pkg-2` → `run(update)` → 500ms 观察窗存活 → `outcome:success`、票据一次性消费、回滚点 `pkg-1` 完好；③ **无目标路径**：不装目标时 `target-not-found`（同会话防御）。注意：浏览器 `ui-approval` 按钮本身仍未点过（headless 用 approval/request 接听方模拟"用户拍板"，语义等价、跳线不同）；签名边界仍待确认。
 - **阶段 3 的全局钩子有爆炸半径**：宿主把动态包挂在 rootCtx 下的 `cordis-dynamic` 组（`cordis-host-runner/src/index.ts` L1238），因此 updater 的 `tools/pre-execute` 钩子是**全局**的，会经过**每个 agent 的每次工具调用**。已按"非 `updater_apply` 一律 `next()` 直通；钩子体任何异常只对本工具 fail-closed、绝不外溢"收口，但这仍是一个应当知晓的架构代价。
 - **阶段 3 无清单签名**：哈希绑定只能保证"批准的就是将执行的"（防传递途中替换、防清单与代码不一致）；**不能**保证代码本身可信 —— 清单与源码同源（同一 GitHub 仓库），仓库被控时哈希会与被篡改的代码一起被控。验签扩展位已留在 `PLACEHOLDER_VERIFY_MANIFEST`，阶段 3 恒放行并在输出里显式标注 `unsigned`。**该边界待用户确认接受。**
 - **阶段 3 启用是人工动作**：`UPDATER_ENABLED=false` 是源码常量；宿主 `startHostHalf` 不向 `apply` 传 config，所以启用只能"改常量 → 重新 define 一个 updater 包"。好处是会话模型无法自行开启这条 RCE 通道；代价是没有开关 UI。
@@ -186,7 +186,7 @@ node --import "file://<DSH-checkout>/node_modules/tsx/dist/loader.mjs" ac/upd3.a
 | P3R3 第三轮复检 | 结论更正裁决 + P-1 失盲 + 6 加固（v7 = p3.4） | ✅ 验收通过 |
 | F6 阶段 1 更新提示 | 版本探测 + `agent/pre-step` 提示注入，**不含自动换版**（v8 = p3.5） | ⏳ 本地 33/33 AC 通过 + **真实会话渲染已验证**，未发布 |
 | F6 阶段 2 手册版 | 提示附执行手册（准确 `pluginId` / 回滚 `packageId` / 切换命令 / 跨会话约束）+ 外部文本隔离（v9 = p3.6） | ⏳ 本地 46/46 AC 通过 + p3r3 回归 PASS，未发布 |
-| F6 阶段 3 peer updater | 独立插件 `dsh-refix-updater`（u1），宿主 `tools/pre-execute` 强制批准门 + sha256 一次性令牌；**非**全自动——每次都问（`versions/refix-updater-v1.js`，默认关闭） | ⏳ 本地 18/18 AC 通过；**批准框未真机验证**；签名边界待确认；未发布 |
+| F6 阶段 3 peer updater | 独立插件 `dsh-refix-updater`（u1），宿主 `tools/pre-execute` 强制批准门 + sha256 一次性令牌；**非**全自动——每次都问（`versions/refix-updater-v1.js`，默认关闭） | ✅ 18/18 AC + **真机全链路验证**（批准/拒绝/无目标三路径，见"已知边界"）；浏览器按钮跳线未点（headless 以接听方等价模拟）；签名边界待确认；已发布 |
 
 ### 阶段 3 的取舍（诚实记录）
 
