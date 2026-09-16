@@ -38,15 +38,19 @@ versions/        # 插件版本源码（plain JS 函数体，经 cordis_define �
   refix-v2-p1.js       # v2：事件订阅 + 周期巡检 + 五类症状识别
   refix-v3-p2.js       # v3：策略表处方 + refix_repair + 观察窗 + 自动回退
   refix-v4-p3.js       # v4：F4 内存态知识库 + 历史方案复用 + 失败学习
-  refix-v5-p3r.js      # v5（当前，p3.2）：代码审查修复版（见 reports/P3R.md）
+  refix-v5-p3r.js      # v5：P3R 审查修复版
+  refix-v6-p3r2.js     # v6：P3R2 复检修复版（见 reports/P3R2.md）
+  refix-v7-p3r3.js     # v7（当前，p3.4）：P3R3 第三轮复检修复版（见 reports/P3R3.md）
   patient-v1.js        # 验收用患者插件（带 health host 方法）
   patient-v2-broken.js # 故障注入夹具（health 必现抛错）
 ac/              # 验收脚本（真实 cordis Context + DynamicCordisRunnerService，不 mock runner）
   p0~p3.ac.mts         # 分阶段验收
   p3r.ac.mts           # 审查修复版验收（挂起探针/热更新/自修复拒绝/参数边界）
+  p3r2.ac.mts          # 复检修复版验收（过滤/泄漏/处方降级/跨会话/批准路径）
+  p3r3.ac.mts          # 第三轮验收（过滤不失盲/通道 B 留档/取消中断）
   ac52.ac.mts          # AC5.2 契约不兼容显式测试（独立进程）
   bench.mts            # 共享 bench
-reports/         # 分阶段验收报告（P0 / P1 / P2 / P3 / P4 / P3R）
+reports/         # 分阶段验收报告（P0 / P1 / P2 / P3 / P4 / P3R / P3R2 / P3R3）
 deploy/          # 部署辅助：tool-cordis 工具组 overlay（真机冒烟用一次性 patch）
 ```
 
@@ -54,7 +58,7 @@ deploy/          # 部署辅助：tool-cordis 工具组 overlay（真机冒烟�
 
 在 DSH 会话中对模型说：
 
-> 用 cordis_define 定义并运行 dsh-refix，宿主半代码取自 `versions/refix-v5-p3r.js`
+> 用 cordis_define 定义并运行 dsh-refix，宿主半代码取自 `versions/refix-v7-p3r3.js`
 
 挂载后可用三个模型侧工具：
 
@@ -94,7 +98,7 @@ web profile 的 `patchReload: 'live'` 使该文件**保存即热加载**（confi
 | AC4.2 | 重启失忆为预期行为（知识库无持久化） | 各脚本独立进程 + p3 冷启动断言 ✅ |
 | AC5.2 | 契约不兼容 → 差异报告 + 全动作门控 | `ac/ac52.ac.mts` ✅ |
 
-全量回归（2026-09-16）：`p0/p1/p2/p3/p3r/ac52` 六脚本连跑 **6/6 PASS**。
+全量回归（2026-09-16）：`p0/p1/p2/p3/p3r/p3r2/p3r3/ac52` 八脚本连跑 **8/8 PASS**。
 
 ## 运行验收脚本
 
@@ -106,6 +110,8 @@ node --import "file://<DSH-checkout>/node_modules/tsx/dist/loader.mjs" ac/p1.ac.
 node --import "file://<DSH-checkout>/node_modules/tsx/dist/loader.mjs" ac/p2.ac.mts
 node --import "file://<DSH-checkout>/node_modules/tsx/dist/loader.mjs" ac/p3.ac.mts
 node --import "file://<DSH-checkout>/node_modules/tsx/dist/loader.mjs" ac/p3r.ac.mts
+node --import "file://<DSH-checkout>/node_modules/tsx/dist/loader.mjs" ac/p3r2.ac.mts
+node --import "file://<DSH-checkout>/node_modules/tsx/dist/loader.mjs" ac/p3r3.ac.mts
 node --import "file://<DSH-checkout>/node_modules/tsx/dist/loader.mjs" ac/ac52.ac.mts
 ```
 
@@ -114,9 +120,10 @@ node --import "file://<DSH-checkout>/node_modules/tsx/dist/loader.mjs" ac/ac52.a
 ## 已知边界（如实声明，v1 范围外）
 
 - **F5 能力上限**：契约探测只探"方法存在性"——方法消失/改名可发现；**"名字在、签名变"不可发现**（V-12）
-- **权限模型**：修复以**目标插件归属会话**的授权执行，不校验调用者身份（V-11）——工具描述已同步声明
+- **权限模型**：修复仅限**与调用者同会话**的插件（`ToolExecutionInput.agent` 比对，跨会话拒绝；N-5）；调用者身份缺失（程序化直调）时放行并留 console.error 痕（P-2）
 - **插件删除无感**：插件被 `undefine` 后从 inventory 消失，不产生任何症状报告（删除属预期动作；V-9）
-- **审批后不回填**：`awaiting-approval` 的修复不入知识库，客户端半区修复成功暂无法复用（V-16，v2 候选）
+- **修复激活失败后停止态不报 run-missing**：激活失败的插件基线已无 run，后续不会再产生 run-missing 报告（V-9 同类盲区；P-7）
+- **审批后不回填**：`awaiting-approval` 的修复不入知识库（N-4 守卫保证不降级既有处方；审批后复核回填是 v2 候选）
 - **事件巡检不做去抖**（O-1 被否）：即时性是特性（事件当拍生效），批量操作下探针风暴由 dedup + probeSkipped + 2s 探针超时缓解
 - 不做 LLM 自由生成修复代码（未知症状转人工）；不持久化（重启即失忆）；不诊断 DSH 主进程；不做无人值守自动修复（审批门保留）；不从网络拉取代码。适配 DSH 升级的路径 = F5 契约报告 → 会话内重新 define 适配版 → 人审切换。
 
@@ -130,6 +137,8 @@ node --import "file://<DSH-checkout>/node_modules/tsx/dist/loader.mjs" ac/ac52.a
 | P3 迭代 | 知识库 + 历史方案复用 + 失败学习 | ✅ 验收通过 |
 | P4 收尾 | 全量回归 + 部署说明 + AC 矩阵 | ✅ 验收通过 |
 | P3R 审查修复 | 16 缺陷 + 7 优化逐条核验处置（v5 = p3.2） | ✅ 验收通过 |
+| P3R2 复检修复 | 复检 4 缺陷 + 6 加固（v6 = p3.3） | ✅ 验收通过 |
+| P3R3 第三轮复检 | 结论更正裁决 + P-1 失盲 + 6 加固（v7 = p3.4） | ✅ 验收通过 |
 
 ## License
 

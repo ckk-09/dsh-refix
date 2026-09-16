@@ -6,6 +6,8 @@ import ToolRegistry from '../../../deepseek-harness/packages/core/tools/src/inde
 import DynamicCordisRunnerService from '../../../deepseek-harness/packages/extensions/cordis-host-runner/src/index.ts'
 
 export const AGENT_A = { id: 'S-a', steer() {}, inject() {} } as any
+/** 第二会话身份：跨会话权限校验（N-5）验收用。 */
+export const AGENT_B = { id: 'S-b', steer() {}, inject() {} } as any
 
 export type Harness = Awaited<ReturnType<typeof setup>>
 
@@ -61,12 +63,13 @@ export async function defineAndRun(h: Harness, idPrefix: string, name: string, c
   return { pluginId, packageId, receipt }
 }
 
-export async function callTool(h: Harness, name: string, args: unknown): Promise<string> {
+export async function callTool(h: Harness, name: string, args: unknown, agent?: unknown, signal?: AbortSignal): Promise<string> {
   const result = await h.ctx.tools.execute({
-    signal: new AbortController().signal,
+    signal: signal ?? new AbortController().signal,
     callId: 'call-' + Math.random().toString(36).slice(2) as never,
     name,
     arguments: args,
+    ...(agent === undefined ? {} : { agent } as never),
   })
   return result.content.filter((b: any) => b.type === 'text').map((b: any) => b.text).join('')
 }
