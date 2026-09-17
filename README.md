@@ -1,3 +1,5 @@
+<a id="chinese"></a>
+
 # dsh-refix — 给你的 DSH 插件请一位"全科医生"
 
 > **一句话**：它是一个会**自己体检、自己开药、自己记病历**的 DSH 插件保姆，别的插件出事了它先发现，能修的它自己修，修不好它会老实告诉你。
@@ -24,24 +26,38 @@
 
 ## 三分钟上手
 
-完整三步（前提自检 / 下载命令 / 可复制话术）在 **[QUICKSTART.md](./QUICKSTART.md)**。极简版：
+**一条命令，装完即用** —— 不需要下载源码，也不需要贴任何话术：
 
-1. **前提自检**：`dsh web --dump-config | findstr "id: tool-cordis"` —— 有输出才能继续（缺则见 QUICKSTART 第 1 步）。
-2. **取源码**：只下载要装的那一个文件，**不需要克隆仓库**：
-   `iwr -Uri https://raw.githubusercontent.com/ckk-09/dsh-refix/main/versions/refix-v1.07.js -OutFile "$env:USERPROFILE\refix-v1.07.js"`
-3. **挂载**：把 QUICKSTART 第 3 步那段话术贴给 DSH 模型——它会读取文件、把全文原样作为 `code.host` 交给 `cordis_define`，再 `cordis_run` 起来；同一段话术还授权它之后替你巡检 / 修复 / 汇报。
+```bash
+dsh plugin --profile web add https://raw.githubusercontent.com/ckk-09/dsh-refix/main/deploy/static/dist/dsh-refix-1.2.0.tgz
+```
+
+然后正常启动 dsh，插件**随启动自动加载**。控制台出现这一行就成了：
+
+```
+dsh-refix p3.4 ready; contract OK (兼容性自检通过); baseline plugins: N; patrol every 15000ms
+```
 
 想立刻问一句，就说——
 
 > 调用 refix_report 给我一份 dsh-refix 的自检报告
 
-看到一坨 JSON？恭喜，医生已经上岗了。（注意：插件自身只有 15s 巡检是自动的；出报告与执行修复要有人调工具——挂载话术里已经把这件事交给会话模型了。）
+看到一坨 JSON？恭喜，医生已经上岗了。（注意：插件自身只有 15s 巡检是自动的；出报告与执行修复要有人调工具——你开口就行。）
 
-卡住了？→ [QUICKSTART.md](./QUICKSTART.md) 有三步走与高频故障；工具参数、`outcome` / `phase` / `reason` 全表、哈希核对、回退、五个必踩的坑 → [TECHNICAL.md](./TECHNICAL.md) 的「使用者参考」。
+完整步骤、**动态包装法**（要在会话里热切换 / 回退版本时用）与高频故障 → **[QUICKSTART.md](./QUICKSTART.md)**。
+工具参数、`outcome` / `phase` / `reason` 全表、哈希核对、回退、五个必踩的坑 → [TECHNICAL.md](./TECHNICAL.md) 的「使用者参考」。
 
 ## 选哪个版本？
 
 ### ✅ 稳定版（推荐所有人使用）
+
+**静态包（V1.2，默认推荐）** —— 一条命令装、装完随 dsh 启动自动加载，全程不需要模型介入：
+
+| 定版号 | 产物 | 一句话说明 |
+|--------|------|-----------|
+| **V1.2** | `deploy/static/dist/dsh-refix-1.2.0.tgz` | **静态包正式发布：装它只要一条命令。插件逻辑与 V1.07（p3.4）逐字节相同——这一版改的是交付形态，不是功能。** |
+
+**动态包源码（V1.0x 线）** —— 需要在会话里热切换 / 一键回退版本时用：
 
 | 定版号 | 文件 | 一句话说明 |
 |--------|------|-----------|
@@ -51,12 +67,12 @@
 | V1.04 | `versions/refix-v1.04.js` | 会记病历（知识库复用） |
 | V1.05 | `versions/refix-v1.05.js` | 第一轮安全大修 |
 | V1.06 | `versions/refix-v1.06.js` | 第二轮复检修复 |
-| **V1.07** | `versions/refix-v1.07.js` | **第三轮复检修复 —— V1.0x 最终版，推荐挂载这个** |
+| V1.07 | `versions/refix-v1.07.js` | 第三轮复检修复 —— V1.0x 最终版（V1.2 静态包就是它的静态形态） |
 
 ### ⚠️ 前瞻版本（尝鲜专用，慎重选择升级安装）
 
 > **🚧 警告：以下是 V1.1 的预览版（pre），包含实验性改动与潜在的破坏性变更，随时可能调整甚至回退。**
-> **不确定就别用；要试，请先看完 [TECHNICAL.md](./TECHNICAL.md) 的「已知边界」一节。稳定永远选 [V1.07](#-稳定版推荐所有人使用)。**
+> **不确定就别用；要试，请先看完 [TECHNICAL.md](./TECHNICAL.md) 的「已知边界」一节。稳定永远选 [V1.2](#-稳定版推荐所有人使用)（静态包）。**
 >
 > 另外：**更新提示只报稳定线**。装了 pre 版不会被自动催升级，想装哪个 pre 版请自己指名文件——这个项目不会把实验版塞给普通用户。
 
@@ -98,6 +114,8 @@
 
 [![GitHub topics](https://img.shields.io/badge/topic-dsh--plugin-blue)](https://github.com/ckk-09/dsh-refix) [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE)
 
+[中文](#chinese) | **English**
+
 ## What does it do for you?
 
 Imagine several dynamic plugins running inside your DSH session. One crashes, another throws, a third fails to render — previously you had to watch, diagnose and fix everything yourself. With dsh-refix:
@@ -114,24 +132,38 @@ Imagine several dynamic plugins running inside your DSH session. One crashes, an
 
 ## Up and running in 3 minutes
 
-The full three steps (prerequisite check / download command / copy-paste wording) are in **[QUICKSTART.md](./QUICKSTART.md)**. Minimal version:
+**One command, done** — no source download, no wording to paste:
 
-1. **Prerequisite check**: `dsh web --dump-config | findstr "id: tool-cordis"` — it must print a row before you continue (see QUICKSTART step 1 if it does not).
-2. **Fetch the source**: download just the one file you need — **no need to clone the repo**:
-   `iwr -Uri https://raw.githubusercontent.com/ckk-09/dsh-refix/main/versions/refix-v1.07.js -OutFile "$env:USERPROFILE\refix-v1.07.js"`
-3. **Mount**: paste the wording from QUICKSTART step 3 to the DSH model — it reads the file, passes the full text as `code.host` to `cordis_define`, then runs it via `cordis_run`; the same wording also authorises the model to patrol / repair / report on your behalf from then on.
+```bash
+dsh plugin --profile web add https://raw.githubusercontent.com/ckk-09/dsh-refix/main/deploy/static/dist/dsh-refix-1.2.0.tgz
+```
+
+Then start dsh as usual; the plugin **loads automatically on every boot**. When you see this line, it is up:
+
+```
+dsh-refix p3.4 ready; contract OK (兼容性自检通过); baseline plugins: N; patrol every 15000ms
+```
 
 To ask for a check right away:
 
 > Call refix_report and show me dsh-refix's self-check report
 
-Seeing a JSON blob? Congratulations — the doctor is on duty. (Note: inside the plugin only the 15 s patrol is automatic; reporting and repair require a tool call — the mount wording delegates that to the session model.)
+Seeing a JSON blob? Congratulations — the doctor is on duty. (Note: inside the plugin only the 15 s patrol is automatic; reporting and repair require a tool call — just ask the model.)
 
-Stuck? → [QUICKSTART.md](./QUICKSTART.md) has the three steps and high-frequency failures; tool parameters, the `outcome` / `phase` / `reason` tables, hash verification, rollback and five pitfalls you will hit → the 「使用者参考」 section of [TECHNICAL.md](./TECHNICAL.md).
+Full steps, the **dynamic-package mount path** (use that one when you want to hot-swap or roll back versions inside a session) and high-frequency failures → **[QUICKSTART.md](./QUICKSTART.md)**.
+Tool parameters, the `outcome` / `phase` / `reason` tables, hash verification, rollback and five pitfalls you will hit → the 「使用者参考」 section of [TECHNICAL.md](./TECHNICAL.md).
 
 ## Which version should I pick?
 
 ### ✅ Stable line (recommended for everyone)
+
+**Static bundle (V1.2, the default)** — one command to install, loads automatically with dsh on every boot, no model involved at any point:
+
+| Release | Artifact | In one line |
+|---------|----------|-------------|
+| **V1.2** | `deploy/static/dist/dsh-refix-1.2.0.tgz` | **first static-bundle release: installing it is a single command. Plugin logic is byte-for-byte identical to V1.07 (p3.4) — this release changes the delivery form, not the features.** |
+
+**Dynamic-package sources (V1.0x line)** — use these when you want to hot-swap or roll back versions inside a session:
 
 | Release | File | In one line |
 |---------|------|-------------|
@@ -141,12 +173,14 @@ Stuck? → [QUICKSTART.md](./QUICKSTART.md) has the three steps and high-frequen
 | V1.04 | `versions/refix-v1.04.js` | keeps records (knowledge base) |
 | V1.05 | `versions/refix-v1.05.js` | first security hardening pass |
 | V1.06 | `versions/refix-v1.06.js` | second review-fix pass |
-| **V1.07** | `versions/refix-v1.07.js` | **third review-fix pass — final of the V1.0x line, mount this one** |
+| V1.07 | `versions/refix-v1.07.js` | third review-fix pass — final of the V1.0x line (V1.2 is its static form) |
 
 ### ⚠️ Preview line (experimental — upgrade with caution)
 
 > **🚧 Warning: the V1.1-pre series is a preview of V1.1 with experimental, potentially breaking changes, subject to change or rollback at any time.**
-> **If unsure, stay on [V1.07](#-stable-line-recommended-for-everyone). If you must try, read the "Known limits" section of [TECHNICAL.md](./TECHNICAL.md) first.**
+> **If unsure, stay on [V1.2](#-stable-line-recommended-for-everyone) (static bundle). If you must try, read the "Known limits" section of [TECHNICAL.md](./TECHNICAL.md) first.**
+>
+> Also: **update notices only ever report the stable line.** Having a pre build installed will never nag you to upgrade, and if you want a specific pre version, name the file yourself — this project does not push experimental builds onto ordinary users.
 
 | Release | File | What's new | Risk note |
 |---------|------|-----------|-----------|

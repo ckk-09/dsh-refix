@@ -15,10 +15,21 @@
 | **V1.04** | `versions/refix-v1.04.js` | v4 / p3.1 | F4 内存态知识库 + 历史方案复用 + 失败学习 | 稳定 |
 | **V1.05** | `versions/refix-v1.05.js` | v5 / p3.2 | P3R 审查修复版 | 稳定 |
 | **V1.06** | `versions/refix-v1.06.js` | v6 / p3.3 | P3R2 复检修复版（见 reports/P3R2.md） | 稳定 |
-| **V1.07** | `versions/refix-v1.07.js` | v7 / p3.4 | P3R3 第三轮复检修复版（见 reports/P3R3.md） | **稳定线最终版，推荐挂载** |
+| **V1.07** | `versions/refix-v1.07.js` | v7 / p3.4 | P3R3 第三轮复检修复版（见 reports/P3R3.md） | **稳定线最终版：动态包推荐挂载这个；要"一条命令装"见下方静态包 V1.2** |
 | **V1.1-pre1** | `versions/refix-v1.1-pre1.js` | v8 / p3.5 | F6 更新探测 + 提示注入（阶段 1，真实会话渲染已验证） | ⚠️ **前瞻版本** |
 | **V1.1-pre2** | `versions/refix-v1.1-pre2.js` | v9 / p3.6 | F6 阶段 2：提示附执行手册 + 外部文本隔离 | ⚠️ **前瞻版本** |
 | **V1.1-pre-updater** | `versions/refix-updater-v1.1-pre.js` | updater v1 / u1 | F6 阶段 3 peer updater（默认关闭） | ⚠️ **前瞻版本** |
+
+### 静态包（V1.2）—— 上表之外的另一种交付形态
+
+上表列的全是**动态包**（源码 `.js`，由会话经 `cordis_define` 挂载）。从 **V1.2** 起，
+同一个插件另有一条**静态包**发布线：产物是 `deploy/static/dist/dsh-refix-1.2.0.tgz`，
+用宿主原生的 `dsh plugin --profile <p> add <tgz>` 安装，装完**随 dsh 启动自动加载**——
+全程不需要模型参与、不需要贴挂载话术，也不需要 `tool-cordis`。
+
+- 插件逻辑与 **V1.07（p3.4）逐字节相同**（612 行原样搬运）：V1.2 改的是交付形态，不是功能。
+- 版本记在 `versions/manifest.json` 的 `static` 段（顶层字段仍只描述动态包稳定线）。
+- 构建、离线验证、真机验证、分发 → **[deploy/static/README.md](./deploy/static/README.md)**。
 
 > ⚠️ **V1.1-pre 前瞻版本警示**：V1.1-pre 系列是面向 V1.1 正式版的**预览线，含实验性改动与潜在的破坏性变更**（详见下方"已知边界"中阶段 3 相关条目）。除非你需要体验更新提示 / 执行手册 / peer updater 功能，否则请使用 **V1.07**。慎重选择升级安装。
 

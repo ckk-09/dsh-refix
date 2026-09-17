@@ -7,5 +7,16 @@
   "releasedAt": "2026-09-16",
   "scheme": "refix-pX.Y",
   "notes": "稳定线（V1.0x）最终版：F1-F5 自诊断/自修复/自迭代，含三轮审查修复",
-  "url": "https://github.com/ckk-09/dsh-refix"
+  "url": "https://github.com/ckk-09/dsh-refix",
+  "static": {
+    "releaseTag": "V1.2",
+    "packageVersion": "1.2.0",
+    "channel": "stable",
+    "file": "deploy/static/dist/dsh-refix-1.2.0.tgz",
+    "releasedAt": "2026-09-17",
+    "install": "dsh plugin --profile <profile> add <tgz 的本地路径或 URL>",
+    "sourcePlugin": "V1.07",
+    "sourceFile": "versions/refix-v1.07.js",
+    "notes": "静态包（profile 层）正式发布线。一条命令安装、装完随 dsh 启动自动加载，全程不需要模型回填源码，也不需要贴挂载话术。插件逻辑与 V1.07（自报 p3.4）逐字节相同——本次发布改的是交付形态，不是功能。"
+  }
 }
