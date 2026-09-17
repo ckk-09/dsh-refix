@@ -5,13 +5,8 @@ node_modules/
 
 # 静态包构建产物（由 deploy/static/build-static.mjs 生成）
 #
-# 展开目录不入库 —— 它可由下面的 tgz 解出，且含 4 个文件、内容随源码全量重写。
-# **但 tgz 必须入库**：它是"一行命令安装"的唯一载体。库里没有这个文件，用户就得
-# 逐文件下载 4 个东西，静态包方案相对"动态包 1 文件 + 贴话术"的收益就归零了。
+# 展开目录 `packages/dsh-refix/` **入库**：awesome-dsh-plugin 收录 CI 只从仓库根或
+# packages/ · plugins/ · apps/ 子包抓取 package.json 找 `dsh.bundle` manifest，
+# 必须让它可被抓取。tgz 同样入库 —— 它是"一行命令安装"的唯一载体。
 # 安装（push 后即可用）：
 #   dsh plugin --profile web add https://raw.githubusercontent.com/<owner>/<repo>/main/deploy/static/dist/dsh-refix-<ver>.tgz
-#
-# 注意 gitignore 的父目录规则：父目录一旦被忽略，`!子项` 无法把它救回来，
-# 所以这里只忽略展开目录 `dsh-refix/`，不忽略 `dist/` 本身。
-deploy/static/dist/dsh-refix/
-!deploy/static/dist/*.tgz

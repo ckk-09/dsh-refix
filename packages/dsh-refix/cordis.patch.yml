@@ -1,0 +1,7 @@
+# dsh-refix v1.2.0 — profile 层 patch（自动生成，请勿手改）
+# 由 dsh.profile.bundles 中出现的 "dsh-refix" 层自动应用。
+# 注意：同一数组内出现两个相同 id 会硬启动失败（vendor/loader/src/config/group.ts L59-66
+# entryMap 的 duplicate loader entry id 检查）。改配置用顶层 "- id: X" + config:，不要再 insert。
+- insert:
+    - id: dsh-refix
+      name: 'dsh-refix'

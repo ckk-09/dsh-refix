@@ -43,9 +43,14 @@
  * 用法：
  *   node deploy/static/build-static.mjs                 # 按 versions/manifest.json 的稳定线构建
  *   node deploy/static/build-static.mjs --src versions/refix-v1.07.js
- *   node deploy/static/build-static.mjs --out deploy/static/dist/dsh-refix
+ *   node deploy/static/build-static.mjs --out packages/dsh-refix
  *   node deploy/static/build-static.mjs --check         # 只做结构断言，不落盘
  *   node deploy/static/build-static.mjs --pack          # 构建后再 npm pack 出 tgz（供一行命令安装）
+ *
+ * 默认落盘到 `packages/dsh-refix`（**必须入库**）：awesome-dsh-plugin 收录 CI 只从
+ * 仓库根或 packages/ · plugins/ · apps/ 子包抓取 package.json 找 `dsh.bundle` manifest，
+ * 放在 deploy/static/dist 下 CI 永远找不到。tgz 仍打包到 deploy/static/dist/，
+ * 路径不变，README 的一行命令安装 URL 不受影响。
  */
 
 import { createHash } from 'node:crypto'
@@ -223,7 +228,7 @@ function tagToSemver(tag) {
 const staticRelease = manifest.static ?? {}
 const staticTag = staticRelease.releaseTag ?? manifest.releaseTag ?? manifest.version ?? ''
 const pkgVersion = staticRelease.packageVersion ?? tagToSemver(staticTag)
-const outDir = resolve(REPO, arg('--out', join('deploy', 'static', 'dist', PACKAGE_NAME)))
+const outDir = resolve(REPO, arg('--out', join('packages', PACKAGE_NAME)))
 
 // ── 5. 静态等价层（sandbox `harness` 的替代）───────────────────────────────
 /**
@@ -417,7 +422,9 @@ function packageJson() {
     name: PACKAGE_NAME,
     version: pkgVersion,
     description: `dsh-refix ${manifest.latest} — DSH 自诊断·自修复·自迭代插件（静态 profile 层构建）`,
-    private: true,
+    // 不设 private:true：收录后市场按 npm 下载量排序展示，包必须可发布。
+    // （profile 的 pnpm-workspace.yaml 带 autoInstallPeers:false，故 peer 不会被安装，
+    // 运行时由 $DSH_HOME/profiles/node_modules 的安装侧投影解析到。）
     type: 'module',
     main: 'lib/index.js',
     exports: {
@@ -426,9 +433,11 @@ function packageJson() {
     },
     files: ['lib', 'cordis.patch.yml', 'README.md'],
     dsh: { bundle: { patch: './cordis.patch.yml' } },
-    // 声明为可选 peer：profile 的 pnpm-workspace.yaml 带 autoInstallPeers:false，故不会被安装，
-    // 运行时由 $DSH_HOME/profiles/node_modules 的安装侧投影解析到。声明它只是让依赖关系可见。
-    peerDependencies: { '@deepseek-ai/dsh-tools': '*' },
+    // peer 范围按 awesome-dsh-plugin 指南的 semver prerelease 规则写：
+    // 裸 `*` 静默排除 harness 的所有预发布构建（如 0.1.0-rc.6）——node-semver 只在
+    // 比较符与版本共享同一 x.y.z 元组且自身带预发布标签时才放行预发布版本，
+    // 所以 0.0.x / 0.1.x 两条线各给一个显式预发布分支（<0.2.0-0 挡住 0.2.x 误匹配）。
+    peerDependencies: { '@deepseek-ai/dsh-tools': '>=0.0.1-rc.1 <0.1.0 || >=0.1.0-rc.1 <0.2.0-0' },
     peerDependenciesMeta: { '@deepseek-ai/dsh-tools': { optional: true } },
     license: 'MIT',
     repository: { type: 'git', url: 'git+https://github.com/ckk-09/dsh-refix.git' },
@@ -543,7 +552,10 @@ process.stdout.write(`build-static: done — ${outDir}\n`)
 // `dsh plugin` 会把声明了 `dsh.bundle` 的依赖自动并进 `dsh.profile.bundles`
 // （apps/cli/src/plugin.ts L120），卸载时同样自动摘除。
 if (argv.includes('--pack')) {
-  const distDir = dirname(outDir)
+  // tgz 固定打到 deploy/static/dist/（历史路径，README 一行命令安装 URL 指向这里），
+  // 与展开目录（packages/dsh-refix）解耦。
+  const distDir = join(REPO, 'deploy', 'static', 'dist')
+  mkdirSync(distDir, { recursive: true })
   const npmCmd = process.platform === 'win32' ? 'npm.cmd' : 'npm'
   const packed = spawnSync(npmCmd, ['pack', '--pack-destination', distDir], {
     cwd: outDir,
