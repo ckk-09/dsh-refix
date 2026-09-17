@@ -1,10 +1,11 @@
 {
-  "latest": "p3.6",
-  "version": "v9",
-  "releaseTag": "V1.1-pre2",
-  "file": "versions/refix-v1.1-pre2.js",
+  "latest": "p3.4",
+  "version": "V1.07",
+  "releaseTag": "V1.07",
+  "channel": "stable",
+  "file": "versions/refix-v1.07.js",
   "releasedAt": "2026-09-16",
   "scheme": "refix-pX.Y",
-  "notes": "F6 阶段 2：更新提示附带执行手册（准确定位 pluginId/回滚 packageId）+ 外部文本隔离；仍不自动换版",
+  "notes": "稳定线（V1.0x）最终版：F1-F5 自诊断/自修复/自迭代，含三轮审查修复",
   "url": "https://github.com/ckk-09/dsh-refix"
 }

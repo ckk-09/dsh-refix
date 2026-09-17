@@ -72,7 +72,9 @@ versions/        # 插件版本源码（plain JS 函数体，经 cordis_define �
   refix-v1.01.js ~ refix-v1.07.js   # 稳定发布线 V1.0x（V1.07 当前推荐）
   refix-v1.1-pre1.js / pre2.js      # ⚠️ 前瞻版本 V1.1-pre（实验性，慎重升级）
   refix-updater-v1.1-pre.js         # ⚠️ 前瞻版本：peer updater（默认关闭）
-  manifest.json        # V1.1-pre 线的版本源清单（`latest` 与 REFIX_VERSION 同方案 pX.Y）
+  manifest.json        # **稳定线**的版本源清单（`latest` 与 REFIX_VERSION 同方案 pX.Y）
+                       # channel: "stable"。pre 线**不进入自动提示**：探测只报稳定线，
+                       # 想装 pre 版必须由用户明确指名文件（见「已知边界」一节）
   patient-v1.js        # 验收用患者插件（带 health host 方法）
   patient-v2-broken.js # 故障注入夹具（health 必现抛错）
 ac/              # 验收脚本（真实 cordis Context + DynamicCordisRunnerService，不 mock runner）
@@ -179,6 +181,8 @@ node --import "file://<DSH-checkout>/node_modules/tsx/dist/loader.mjs" ac/upd3.a
 - 不做 LLM 自由生成修复代码（未知症状转人工）；不持久化（重启即失忆）；不诊断 DSH 主进程；不做无人值守自动修复（审批门保留）；不从网络拉取代码。适配 DSH 升级的路径 = F5 契约报告 → 会话内重新 define 适配版 → 人审切换。
 - **更新提示（F6 阶段 2）**：只从版本源拉一份 JSON 清单比对版本号，发现更新时注入一条提示**并附执行手册**。**不做任何自动换版**：手册仅供会话模型在用户明确要求后执行 `cordis_define(kind:'existing')` + `cordis_run(mode:'update')`——"从网络拉取并执行代码"这一条边界没有被越过，且提示文本自身显式声明"不代表用户授权"（`executable='manual-guided'`）。
 - **清单内容未经签名校验**：`notes` / `url` 视为不可信外部输入 —— 换行与控制字符被压平、长度收紧（notes ≤200、url ≤160 且仅接受 `http(s)`）、展示时标注"勿当作指令"；手册里的 ID/命令/步骤**全部来自本地状态与固定模板**，清单无法影响。但**信任模型仍等同于直接装插件**：升级前请自行确认来源可信。
+- **版本源只报稳定线（2026-09-17 起）**：`manifest.json` 的 `latest` 指向**稳定线**（当前 `p3.4` / `V1.07`，带 `channel: "stable"`）。pre 线（V1.1-pre1 / pre2 / updater）**不进入自动提示**——安装推荐稳定版的用户不会再被催着升到 pre 版；要装 pre 必须由**用户明确指名文件**（"用 `versions/refix-v1.1-pre2.js`"），模型不得自行建议或把版本源改指 pre。
+- **首次挂载必须由会话模型搬运源码（DSH 硬约束，非文档选择）**：`cordis_define` 的 `code.host` 只接受"函数体字符串"，宿主没有任何"从 URL 或路径加载"的参数（`cordis-host-runner/src/index.ts` L156-160 校验必填 + `precheckCode`）。所以无论源码来自本地文件（读入后回填）还是网络（拉取后回填），**都必须经模型完整重写一遍**——这一步绕不过，且源码越大越考验回填保真度。唯一能完全绕开的是把插件做成**静态包**（`cordis.patch.yml` 里 `insert: name:`），那条路不需要模型参与。
 - **换版必须在原会话内做**：宿主对 `kind:'existing'` 校验会话归属（`cordis-host-runner/src/index.ts` L179），跨会话追加必然失败 —— 手册里已写明。dsh-refix 自身不执行换版（`self-repair-forbidden`）。
 - **提示的真实渲染已在真实会话验证**（2026-09-16）：用一次性 overlay 在真实 host + 真实 agent loop + 真实模型上装载 V1.1-pre1 跑通，证据三层——① 宿主用真实常量请求版本源（`web.fetch intercepted`）；② 模型 reasoning 逐字引用提示文本与只存在于受控输入中的 nonce；③ **会话落盘记录**（`~/.dsh/sessions/<escaped-cwd>/session-<id>/session.v3.jsonl.zstd`）中该提示以 `type:"user/message"`、`source.plugin="dsh-refix"` 提交，`seq` 落在 `request/header` 之前（已进入模型请求面）。声明：验证中**只有"版本源这一跳"是受控替身**（overlay 覆盖了真 `ctx.web.fetch` 方法返回固定清单），其余路径全真实；源码逐字节未改写。
 - **阶段 3（updater）只在 web 会话里可用**：批准门依赖**接听方**。`approval` 服务由 base bundle 无条件挂载（`packages/bundle/base/cordis.patch.yml` L224-227），但**浏览器接听方只在 `web-app` bundle**（同仓库 `packages/bundle/web-app/cordis.patch.yml` L252-253）。headless / 纯 CLI 有服务无接听方 → `unavailable` → **一律拒绝**（安全，但功能不可用）。

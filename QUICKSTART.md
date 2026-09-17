@@ -1,9 +1,9 @@
 # dsh-refix 上手指南（面向零基础）
 
-> 目标：**从"文件躺在硬盘上"到"dsh 会话里能用三个工具"**，全程只需要复制粘贴两段话。
+> 目标：**从"手上只有一条下载命令"到"dsh 会话里能用三个工具"**，全程只需要复制粘贴两三段话。
 >
-> 适用版本：`versions/refix-v1.07.js`（v7 / p3.4，当前推荐）
-> 本文所有命令与结论均于 2026-09-16 在本机实跑验证（8/8 验收脚本 PASS）。
+> 适用版本：`versions/refix-v1.07.js`（V1.07 / p3.4，当前推荐）
+> 本文所有命令与结论均于 2026-09-16 / 09-17 在本机实跑验证（含 8/8 验收脚本 PASS、真机会话挂载）。
 
 ---
 
@@ -13,7 +13,7 @@
 |---|------|---------|
 | 1 | 你有一个能跑的 DSH，且知道它的安装目录 | 例如 `D:\AI-Workspace\deepseek-harness` |
 | 2 | DSH 的 web profile 挂了 **tool-cordis** 工具组 | 打开 `~/.dsh/profiles/web/cordis.patch.yml`，`insert:` 列表里应有 `id: tool-cordis` |
-| 3 | 本仓库已克隆到本地 | 例如 `D:\AI-Workspace\workspace\dsh-refix` |
+| 3 | 你手上有一份插件源码文件（**不需要克隆整个仓库**） | 见下面 §0.1，两条路任选其一 |
 
 **第 2 条是硬前提。** 没有 `cordis_*` 工具，后面的挂载话术一句也用不了。补法：在 `cordis.patch.yml` 的 `insert:` 下追加（该文件 `patchReload: live`，保存即热加载，新开会话生效）：
 
@@ -22,28 +22,83 @@
       name: '@deepseek-ai/dsh-tool-cordis'
 ```
 
-**第 3 条的关键点**：dsh-refix 是"动态插件"，它的源码**必须由会话里的模型读进上下文**才能挂载（原因见第 5 节坑 1）。所以文件得放在模型读得到的地方——放 `D:\AI-Workspace\workspace\dsh-refix\versions\` 下、用绝对路径引用，最省事。
+> 若 `cordis_*` 工具仍不出现，再补一行 `- id: cordis-host-runner` / `name: '@deepseek-ai/dsh-cordis-host-runner'`
+> —— `tool-cordis` 声明依赖 `dynamicCordisRunner`，缺了它的提供方，工具组会一直处于未激活状态。
+
+**第 3 条为什么绕不开**：dsh-refix 是"动态插件"，而 `cordis_define` 的参数 `code.host` 只接受**函数体字符串**
+—— DSH 没有"从网址或路径直接加载插件"的参数（宿主 `cordis-host-runner/src/index.ts` L156-160 就是校验这个字符串）。
+所以源码**必须先进入会话模型的上下文，再由它原样回填**。这跟"仓库在不在你本地"无关：**没克隆也能装**。
+
+### 0.1 拿到源码文件（不用克隆仓库）
+
+**路 B（默认，推荐）**：只下载你要装的那一个文件。Windows PowerShell：
+
+```powershell
+iwr -Uri https://raw.githubusercontent.com/ckk-09/dsh-refix/main/versions/refix-v1.07.js -OutFile "$env:USERPROFILE\refix-v1.07.js"
+```
+
+或系统自带 curl：
+
+```bash
+curl.exe -fsSL -o "%USERPROFILE%\refix-v1.07.js" https://raw.githubusercontent.com/ckk-09/dsh-refix/main/versions/refix-v1.07.js
+```
+
+> 记下落盘路径（例：`C:\Users\你的名字\refix-v1.07.js`），§1 的话术里要填。
+> `raw.githubusercontent.com` 直连失败时给终端挂代理；连代理都没有 → 走路 A（让模型自己取）。
+
+**路 A（备选，连下载都省）**：不落盘，让模型自己上网取源码。话术见 §1 末尾。
+
+**只有想跑验收脚本才需要克隆整个仓库**：
+
+```bash
+git clone https://github.com/ckk-09/dsh-refix.git
+```
+
 
 ---
 
 ## 1. 挂载（复制这段，粘进 DSH 会话）
 
-开一个 DSH 会话，把下面整段发给模型：
+### 路 B（默认）：让模型读你刚下载的那个文件
+
+把 `<你的文件完整路径>` 换成 §0.1 里记下的**完整路径（含文件名）**——例如
+`C:\Users\你的名字\refix-v1.07.js`（**必须是绝对路径**，Windows 反斜杠没问题、别加引号）：
 
 ```text
 请用 cordis_define 定义并运行 dsh-refix，步骤：
 
-1. 先读取文件 D:\AI-Workspace\workspace\dsh-refix\versions\refix-v1.07.js 的全部内容
+1. 先读取文件 <你的文件完整路径> 的全部内容
 2. 该文件的全部内容本身就是一段「返回 Cordis Plugin 的 JavaScript 函数体」，
    原样作为 code.host 传入（不要改一个字，不要加 import/export）
 3. plugin 参数：kind:"new", idPrefix:"refix"
    name: "dsh-refix"
    purpose: "DSH 自诊断/自修复/自迭代动态插件"
 4. 用 cordis_define 返回的 pluginId / packageId 调 cordis_run，mode 用 "run"
-5. 把最终的 pluginId 告诉我
+5. 把最终的 pluginId 告诉我，并回报你读到的文件字节数
 ```
 
-> **路径要改**：第 1 步的路径换成你自己的实际路径。Windows 路径带反斜杠没问题，别加引号。
+> 第 5 步的"回报字节数"是给 §2.1 自证用的：`refix-v1.07.js` 应为 **34210** 字节。
+
+### 路 A（备选）：不下载，让模型自己取源码
+
+```text
+请用 cordis_define 定义并运行 dsh-refix，步骤：
+
+1. 用 web_fetch 抓取：
+   https://raw.githubusercontent.com/ckk-09/dsh-refix/main/versions/refix-v1.07.js
+2. 返回内容的第一行形如 "Fetched <url> (HTTP 200)"，那是抓取工具加的头部，
+   **丢掉这一行**（以及任何截断提示行）
+3. 余下全文本身就是一段「返回 Cordis Plugin 的 JavaScript 函数体」，
+   原样作为 code.host 传入（不要改一个字，不要加 import/export）
+4. plugin 参数：kind:"new", idPrefix:"refix"
+   name: "dsh-refix"
+   purpose: "DSH 自诊断/自修复/自迭代动态插件"
+5. 用 cordis_define 返回的 pluginId / packageId 调 cordis_run，mode 用 "run"
+6. 把最终的 pluginId 告诉我，并回报你回填的字节数
+```
+
+> 路 A 的固有缺点：整份源码要经模型回填一次，**是否逐字节一致无法自证**——所以装完必须走 §2.1。
+> 想更稳就用路 B（文件落盘后可算哈希核对）。
 
 ---
 
@@ -62,6 +117,38 @@ dsh-refix p3.4 ready; contract OK (兼容性自检通过); baseline plugins: N; 
 ```
 
 **只要这个调用有返回 → 挂载成功。** 报告里 `contract.ok` 为 `true` 就说明宿主契约齐全（F5 自检通过）。
+
+### 2.1 自证：确认挂上去的确实是你想装的那一版
+
+为什么要自证：源码是"经模型搬运一次"进运行态的（§0 第 3 条），**没有自动的字节校验**。
+下面三个信号都要对，才算装干净：
+
+| 检查点 | 期望值（以 V1.07 为例） |
+|---|---|
+| dsh 控制台那行 | `dsh-refix p3.4 ready; contract OK ...` |
+| `refix_report` 的 `version` | `p3.4` |
+| `refix_report` 的 `contract.ok` | `true` |
+| `refix_report` 的 `baseline` | 能看到你自己的插件行（pluginId / currentPackageId） |
+| 模型回报的字节数（§1 第 5 步） | 路 B：读到的文件字节数 = 下表值；路 A：回填字节数 ≈ 下表值 |
+
+**哈希核对（只有路 B 做得到，最硬的证据）**——下载完先跑这条：
+
+```powershell
+Get-FileHash -Algorithm SHA256 "$env:USERPROFILE\refix-v1.07.js"
+```
+
+各发布版本文件的参考值（**每个版本文件已冻结、发布后不再修改，所以这些哈希不会变**；
+若哪天对不上，说明下载被中间人改写或文件被人动过）：
+
+| 文件 | 定版号 | 字节 | sha256 |
+|---|---|---|---|
+| `refix-v1.07.js` | V1.07（推荐） | 34210 | `8d13fec59465660ae5eb38d3e00ecda19b8d8b7002b6780b9843cf764dadeb88` |
+| `refix-v1.1-pre1.js` | V1.1-pre1 ⚠️ | 46076 | `708e2c563d4995c6e8718527993297f7ab8bce27f0ac78d6b6f4f39906fd8969` |
+| `refix-v1.1-pre2.js` | V1.1-pre2 ⚠️ | 53124 | `ffbbdf68664a7c28084e3dc42cd00197f7489f07aca19a6c0a95040148831e01` |
+| `refix-updater-v1.1-pre.js` | V1.1-pre-updater ⚠️ | 45445 | `9785907a4ba043003262194f34863412642e2285ca868057f31fc29aa0773409` |
+
+> 上表四个哈希已在 2026-09-17 用 GitHub raw 实际下载物逐个复算，与仓库工作区文件逐字节一致
+> （同时排除了 CRLF 污染：raw 侧 0 个 `\r\n`）。
 
 ---
 
@@ -210,9 +297,12 @@ dsh-refix 只是"默默在后台每 15s 巡检 + 记报告"。**它不会主动�
 
 ```text
 用 cordis_define（kind:"existing", pluginId:"<你的 refix pluginId>"）
-把 versions/refix-v1.06.js 的内容作为 code.host 追加为新版本，
+把 refix-v1.06.js 的内容作为 code.host 追加为新版本，
 然后用 cordis_run（mode:"update"）切过去
 ```
+
+> 注意两点：① 换版**必须在原会话内做**（宿主校验会话归属，跨会话追加必失败）；
+> ② 回退同样要**那份源码在会话读得到的位置**——没克隆仓库的话，按 §0.1 同一路子只下载 `refix-v1.06.js` 一个文件即可。
 
 因为每个 Package 是**不可变**的，旧版本天然就是回滚点——`refix_run` 的 `mode` 用 `update` 就能在任意两个版本间来回切。
 
@@ -253,7 +343,7 @@ node --import "file:///<DSH-checkout>/node_modules/tsx/dist/loader.mjs" ac/p0.ac
 ## 8. 常见问题
 
 **Q：模型说"我读不到这个文件"？**
-把你的真实路径告诉它，或者把文件复制到会话的当前工作目录下再挂。
+把完整绝对路径告诉它（§1 路 B）；实在读不到就走 §0.1 的**路 A**，让模型用 `web_fetch` 自己取，不依赖本地文件。
 
 **Q：`refix_report` 里 `contract.ok` 是 `false` 怎么办？**
 说明 DSH 升级后宿主 API 变了。这时所有修复动作都会被门控拒绝（这是保护，不是故障）。要做的是：看 `contract.missing` 列出缺了哪些方法，把 v7 源码里对应的调用适配后重新 `define` 一个版本再切过去。
