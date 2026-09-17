@@ -24,21 +24,20 @@
 
 ## 三分钟上手
 
-**前提**：你的 DSH 会话里已经有 `cordis_*` 工具（怎么开：见 [QUICKSTART.md](./QUICKSTART.md) 第 0 步）。
+完整三步（前提自检 / 下载命令 / 可复制话术）在 **[QUICKSTART.md](./QUICKSTART.md)**。极简版：
 
-**第 1 步**：对 DSH 模型说——
+1. **前提自检**：`dsh web --dump-config | findstr "id: tool-cordis"` —— 有输出才能继续（缺则见 QUICKSTART 第 1 步）。
+2. **取源码**：只下载要装的那一个文件，**不需要克隆仓库**：
+   `iwr -Uri https://raw.githubusercontent.com/ckk-09/dsh-refix/main/versions/refix-v1.07.js -OutFile "$env:USERPROFILE\refix-v1.07.js"`
+3. **挂载**：把 QUICKSTART 第 3 步那段话术贴给 DSH 模型——它会读取文件、把全文原样作为 `code.host` 交给 `cordis_define`，再 `cordis_run` 起来；同一段话术还授权它之后替你巡检 / 修复 / 汇报。
 
-> 用 cordis_define 定义并运行 dsh-refix，宿主半代码取自 `versions/refix-v1.07.js`
-
-**第 2 步**：对模型说——
+想立刻问一句，就说——
 
 > 调用 refix_report 给我一份 dsh-refix 的自检报告
 
-看到一坨 JSON？恭喜，医生已经上岗了。接下来它会自动干活，你只需要在它报告症状时决定"修不修"。
+看到一坨 JSON？恭喜，医生已经上岗了。（注意：插件自身只有 15s 巡检是自动的；出报告与执行修复要有人调工具——挂载话术里已经把这件事交给会话模型了。）
 
-**第 3 步（可选）**：想知道某插件现在的健康状况？说"用 refix_patrol 巡检一轮"；想修某个插件？说"用 refix_repair 修复 xxx 插件"。
-
-卡住了？→ [QUICKSTART.md](./QUICKSTART.md) 有完整话术、返回值怎么读、五个必踩的坑。
+卡住了？→ [QUICKSTART.md](./QUICKSTART.md) 有三步走与高频故障；工具参数、`outcome` / `phase` / `reason` 全表、哈希核对、回退、五个必踩的坑 → [TECHNICAL.md](./TECHNICAL.md) 的「使用者参考」。
 
 ## 选哪个版本？
 
@@ -80,6 +79,7 @@
 | 想知道… | 去看 |
 |---|---|
 | 一步步怎么装、报错怎么办 | [QUICKSTART.md](./QUICKSTART.md) |
+| 工具参数、返回值全表（`outcome`/`phase`/`reason`）、哈希核对、回退、五个坑 | [TECHNICAL.md](./TECHNICAL.md) 的「使用者参考」 |
 | 全部技术细节：硬边界 B1~B6、诊断策略表、13/13 验收矩阵、8/8 回归、已知边界 | [TECHNICAL.md](./TECHNICAL.md) |
 | 每个阶段干了什么、踩过什么坑 | [reports/](./reports/) 目录（P0~P4 + P3R/P3R2/P3R3） |
 | 验收怎么跑 | [TECHNICAL.md 的「运行验收脚本」](./TECHNICAL.md#运行验收脚本) |
@@ -114,21 +114,20 @@ Imagine several dynamic plugins running inside your DSH session. One crashes, an
 
 ## Up and running in 3 minutes
 
-**Prerequisite**: your DSH session already has the `cordis_*` tools (how to enable them: step 0 of [QUICKSTART.md](./QUICKSTART.md)).
+The full three steps (prerequisite check / download command / copy-paste wording) are in **[QUICKSTART.md](./QUICKSTART.md)**. Minimal version:
 
-**Step 1** — tell the DSH model:
+1. **Prerequisite check**: `dsh web --dump-config | findstr "id: tool-cordis"` — it must print a row before you continue (see QUICKSTART step 1 if it does not).
+2. **Fetch the source**: download just the one file you need — **no need to clone the repo**:
+   `iwr -Uri https://raw.githubusercontent.com/ckk-09/dsh-refix/main/versions/refix-v1.07.js -OutFile "$env:USERPROFILE\refix-v1.07.js"`
+3. **Mount**: paste the wording from QUICKSTART step 3 to the DSH model — it reads the file, passes the full text as `code.host` to `cordis_define`, then runs it via `cordis_run`; the same wording also authorises the model to patrol / repair / report on your behalf from then on.
 
-> Define and run dsh-refix via cordis_define, host-side code from `versions/refix-v1.07.js`
-
-**Step 2** — tell the model:
+To ask for a check right away:
 
 > Call refix_report and show me dsh-refix's self-check report
 
-Seeing a JSON blob? Congratulations — the doctor is on duty. It works automatically from here; you only decide "fix or not" when it reports a symptom.
+Seeing a JSON blob? Congratulations — the doctor is on duty. (Note: inside the plugin only the 15 s patrol is automatic; reporting and repair require a tool call — the mount wording delegates that to the session model.)
 
-**Step 3 (optional)**: "Patrol once with refix_patrol" for an instant health check; "Repair plugin X with refix_repair" to fix it.
-
-Stuck? → [QUICKSTART.md](./QUICKSTART.md) has the full wording, how to read `outcome`, and five pitfalls you will hit.
+Stuck? → [QUICKSTART.md](./QUICKSTART.md) has the three steps and high-frequency failures; tool parameters, the `outcome` / `phase` / `reason` tables, hash verification, rollback and five pitfalls you will hit → the 「使用者参考」 section of [TECHNICAL.md](./TECHNICAL.md).
 
 ## Which version should I pick?
 
@@ -168,6 +167,7 @@ Stuck? → [QUICKSTART.md](./QUICKSTART.md) has the full wording, how to read `o
 | Looking for… | Go to |
 |---|---|
 | Step-by-step install and troubleshooting | [QUICKSTART.md](./QUICKSTART.md) |
+| Tool parameters, full return-value tables (`outcome`/`phase`/`reason`), hash verification, rollback, five pitfalls | the 「使用者参考」 section of [TECHNICAL.md](./TECHNICAL.md) |
 | Full technical detail: boundaries B1~B6, symptom policy table, 13/13 AC matrix, 8/8 regression, known limits | [TECHNICAL.md](./TECHNICAL.md) |
 | What each stage did and what pitfalls were hit | [reports/](./reports/) (P0~P4 + P3R/P3R2/P3R3) |
 | How to run acceptance | [Run the acceptance scripts](./TECHNICAL.md#运行验收脚本) |

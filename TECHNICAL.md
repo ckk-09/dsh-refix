@@ -65,7 +65,7 @@ dsh-refix 是 **DSH（DeepSeek Harness，自研宿主，暂未公开）** 的**�
 ## 目录结构
 
 ```
-QUICKSTART.md    # 零基础上手指南（挂载 / 工具用法 / 返回值解读 / 常见坑）
+QUICKSTART.md    # 60 秒上手指南（三步装好 + 高频故障；工具用法/返回值/哈希/回退/五个坑已归入本文件的「使用者参考」）
 README.md        # 面向所有人的项目介绍（人性化版）
 TECHNICAL.md     # 本文件：机制 / 边界 / 验收 / 已知边界（专业版）
 versions/        # 插件版本源码（plain JS 函数体，经 cordis_define 挂载）
@@ -94,11 +94,14 @@ deploy/          # 部署辅助：tool-cordis 工具组 overlay（真机冒烟�
 
 ## 快速开始
 
-在 DSH 会话中对模型说：
+三步，逐字可复制的版本见 **[QUICKSTART.md](./QUICKSTART.md)**：
 
-> 用 cordis_define 定义并运行 dsh-refix，宿主半代码取自 `versions/refix-v1.07.js`
+1. **前提自检**：`dsh web --dump-config | findstr "id: tool-cordis"` —— 有输出才能继续（缺则按下方「部署」加一行）。
+2. **取源码**：只下载要装的那一个文件，**不需要克隆整个仓库**：
+   `iwr -Uri https://raw.githubusercontent.com/ckk-09/dsh-refix/main/versions/refix-v1.07.js -OutFile "$env:USERPROFILE\refix-v1.07.js"`
+3. **挂载**：把 QUICKSTART 第 3 步那段话术贴进 DSH 会话——它含两部分：① "让模型先读文件、把全文原样作为 `code.host` 传入"；② "装好后由模型负责 patrol / report / repair" 的授权句（v1.07 只有 15s 巡检是插件自动的，修复与报告需有人调工具；该授权句把这件事交给会话模型）。
 
-**注意**：`cordis_define` 的 `code.host` 只接受**函数体字符串**（无文件路径参数），因此需让模型先读取该文件再原文传入；路径建议给绝对路径。完整话术与逐项排错见 **[QUICKSTART.md](./QUICKSTART.md)**。
+**注意**：`cordis_define` 的 `code.host` 只接受**函数体字符串**（无文件路径参数），因此必须让模型先读取该文件再原文传入；路径给绝对路径。这一跳绕不过去 —— 见「已知边界」的 DSH 硬约束条。
 
 挂载后可用三个模型侧工具：
 
@@ -129,6 +132,166 @@ web profile 的 `patchReload: 'live'` 使该文件**保存即热加载**（confi
 >
 > 要**改**它（而非加它）用**顶层同 id 覆盖**：`- id: cordis-host-runner` + `config: {...}`（`applyEntryPatches` L110-124 会就地合并；`buildMap(insert)` L96-101 保证前一层的 insert 行可被后一层按 id 命中）。加之前可离线核对：`dsh web --dump-config | findstr "id: cordis-host-runner"`，出现 1 次即已有（该命令在 dsh 起不来时同样可用）。
 
+## 使用者参考（工具用法 / 返回值 / 自证 / 回退 / 常见坑）
+
+> 本节承接 [QUICKSTART.md](./QUICKSTART.md) 精简后的细节。**装法看 QUICKSTART（三步）**，遇到具体问题时回本表查。
+
+### 三个工具怎么用
+
+挂载后会话里多出三个工具。都**只能由模型调用**，使用者只管说话。
+
+#### `refix_report` — 看状态（只读，安全）
+
+| 参数 | 必填 | 说明 |
+|------|------|------|
+| `limit` | 否 | 只返回最近 N 条 reports/repairs。长会话务必带上（比如 `limit: 5`），否则全量序列化会灌爆上下文 |
+
+| 字段 | 含义 |
+|------|------|
+| `version` | 当前 `REFIX_VERSION`（V1.07 = `p3.4`） |
+| `contract` | `{ ok, missing[] }` — F5 兼容性自检。`ok:false` 时**所有修复动作会被门控拒绝** |
+| `baseline` | 当前所有动态插件的基线快照（pluginId / agentId / currentPackageId / activeRun / latestStatus） |
+| `patrolCount` | 巡检轮数（每 15s 自动一轮 + 手动触发的） |
+| `recentEvents` | 最近收到的 `cordis/*` 事件 |
+| `reports` | F1 诊断报告：识别到的症状列表 |
+| `repairs` | F3 修复记录：每次修复的动作、结果、观察窗时长 |
+| `knowledge` | F4 知识库：`症状\|插件` 指纹 → 有效方案 |
+
+一句话用法：**「调用 refix_report（limit 5）看看现在的诊断状态」**（`refix_report` 也是"挂上了没有"的判据：有返回即成功）
+
+#### `refix_patrol` — 立刻体检一次
+
+| 参数 | 必填 | 说明 |
+|------|------|------|
+| `pluginId` | 否 | 只**返回**该插件的症状。注意：检测与基线仍然全量推进，不会因为过滤而漏掉别的插件 |
+
+返回：`{ triggered:"manual", onlyPid, newSymptoms[], patrolCount }`
+
+> **同一症状持续期间不会重复报告。** 返回空数组 `newSymptoms: []` 是正常的，说明"没有新问题"，不是坏了。
+
+#### `refix_repair` — 执行修复（会动东西，谨慎）
+
+| 参数 | 必填 | 说明 |
+|------|------|------|
+| `pluginId` | ✅ | 目标插件 ID |
+| `symptom` | 否 | 要修的症状 kind；省略 = 取该插件最近一条报告 |
+| `targetPackageId` | 否 | 手动指定修到哪个版本（优先级高于知识库） |
+| `observeMs` | 否 | 观察窗毫秒，默认 30000，上限 120000 |
+
+**三条权限红线（是设计，不是 bug）**：
+1. 只能修**与调用者同会话**的插件，跨会话直接 `refused: cross-session`
+2. **不许修 dsh-refix 自己**（软重置会销毁自身 fiber）→ `refused: self-repair-forbidden`
+3. 同一时刻只允许一个修复在跑 → `repair-in-progress`
+
+### 怎么判断修复成功还是失败
+
+`refix_repair` 的返回里 `outcome` 是唯一权威字段。
+
+| `outcome` | 含义 | 该做什么 |
+|-----------|------|-----------|
+| `success` | 修复成功，观察窗内无症状 | 完事 |
+| `awaiting-approval` | ⏸ **不是失败**。目标插件有客户端半区，已自动发起 DSH 原生审批 | 去 DSH 界面上点批准 |
+| `failed` | 失败，看 `phase` 细分 | 见下表 |
+| `refused` | 未动手，看 `reason` 细分 | 见下表 |
+
+**`failed` 的 phase**：
+
+| phase | 意思 |
+|-------|------|
+| `precheck` | 动手前就没过：目标版本不存在 / 目标是 dsh-refix 自身 |
+| `activation` | 版本切换后激活失败 |
+| `rollback` | 修复无效，而且**回退也失败了** —— 最糟的情况，需人工 |
+| `repair-invalid` | 修复后症状仍在；有旧版本会已自动回退 |
+| `exception` | 执行过程抛异常 |
+
+**`refused` 的 reason**：
+
+| reason | 意思 |
+|--------|------|
+| `contract-incompatible` | F5 自检不通过（宿主 API 变了），**所有修复被门控** |
+| `self-repair-forbidden` | 不许修自己 |
+| `repair-in-progress` | 已有修复在跑，等它结束 |
+| `cross-session` | 目标插件不属于当前会话 |
+| `plugin-not-found` | inventory 里没有这个插件（可能已被删除） |
+| `prior-fix-failed` | 知识库里这条方案**上次失败过**，按策略转人工，不重试 |
+| `manual-only` | 症状未收录进策略表，只报告不动手 |
+| `no-target` | 没有原版本/成功版本可切换 |
+| `owner-session-not-live` | 归属会话已下线，拿不到授权 Agent |
+
+> **`manual-only` 是常态，不是缺陷。** 未收录的症状一律转人工——dsh-refix 不生成修复代码。
+
+### 自证：确认装进去的确实是你想装的那一版
+
+为什么要自证：源码是"经会话模型搬运一次"进运行态的（见「已知边界」的 DSH 硬约束条），**没有自动的字节校验**。下列信号都要对，才算装干净：
+
+| 检查点 | 期望值（以 V1.07 为例） |
+|---|---|
+| dsh 控制台那行 | `dsh-refix p3.4 ready; contract OK ...` |
+| `refix_report` 的 `version` | `p3.4` |
+| `refix_report` 的 `contract.ok` | `true` |
+| `refix_report` 的 `baseline` | 能看到目标插件行（pluginId / currentPackageId） |
+| 模型回报的字节数 | 本地读：读到的文件字节数 = 下表值；网络取：回填字节数 ≈ 下表值 |
+
+**哈希核对（只有"先下载再让模型读"这条路做得到，是最硬的证据）**——下载完先跑：
+
+```powershell
+Get-FileHash -Algorithm SHA256 "$env:USERPROFILE\refix-v1.07.js"
+```
+
+各发布版本文件的参考值（**每个版本文件已冻结、发布后不再修改，所以这些哈希不会变**；若对不上，说明下载被中间人改写或文件被人动过）：
+
+| 文件 | 定版号 | 字节 | sha256 |
+|---|---|---|---|
+| `refix-v1.07.js` | V1.07（推荐） | 34210 | `8d13fec59465660ae5eb38d3e00ecda19b8d8b7002b6780b9843cf764dadeb88` |
+| `refix-v1.1-pre1.js` | V1.1-pre1 ⚠️ | 46076 | `708e2c563d4995c6e8718527993297f7ab8bce27f0ac78d6b6f4f39906fd8969` |
+| `refix-v1.1-pre2.js` | V1.1-pre2 ⚠️ | 53124 | `ffbbdf68664a7c28084e3dc42cd00197f7489f07aca19a6c0a95040148831e01` |
+| `refix-updater-v1.1-pre.js` | V1.1-pre-updater ⚠️ | 45445 | `9785907a4ba043003262194f34863412642e2285ca868057f31fc29aa0773409` |
+
+> 上表四个哈希已在 2026-09-17 用 GitHub raw 实际下载物逐个复算，与仓库工作区文件逐字节一致（同时排除 CRLF 污染：raw 侧 0 个 `\r\n`）。
+
+### 回退到旧版本
+
+版本链完整保留，V1.01 → V1.07 全部可切。回退 = 换一个 packageId 激活：
+
+```text
+用 cordis_define（kind:"existing", pluginId:"<你的 refix pluginId>"）
+把 refix-v1.06.js 的内容作为 code.host 追加为新版本，
+然后用 cordis_run（mode:"update"）切过去
+```
+
+> 注意两点：① 换版**必须在原会话内做**（宿主校验会话归属，跨会话追加必失败）；
+> ② 回退同样要**那份源码在会话读得到的位置**——没克隆仓库的话，只下载 `refix-v1.06.js` 那一个文件即可。
+
+因为每个 Package 是**不可变**的，旧版本天然就是回滚点——`cordis_run` 的 `mode` 用 `update` 就能在任意两个版本间来回切。
+
+| 文件 | 定版号 | 内容 |
+|------|------|------|
+| `refix-v1.01.js` | V1.01 | 骨架：契约探测 + 基线 |
+| `refix-v1.02.js` | V1.02 | 诊断：事件订阅 + 巡检 |
+| `refix-v1.03.js` | V1.03 | 修复：策略表 + 观察窗 |
+| `refix-v1.04.js` | V1.04 | 迭代：知识库 |
+| `refix-v1.05.js` | V1.05 | P3R 审查修复（16 缺陷） |
+| `refix-v1.06.js` | V1.06 | P3R2 复检修复 |
+| **`refix-v1.07.js`** | **V1.07** | **P3R3 复检修复（当前推荐）** |
+
+### 五个必踩的坑
+
+**坑 1：`code.host` 只收函数体字符串，不认文件路径** ⚠️ 最容易卡
+
+`cordis_define` 的 `code.host` 类型是 `string`，描述原文是 *Plain JavaScript function body that returns the Host-half Cordis Plugin.* —— **没有"路径"这种参数**。所以模型必须先读出文件内容、再原文塞进 `code.host`。这意味着：
+
+- **会话必须能读到那个文件**。文件不在会话工作目录下 → 用绝对路径明确告诉它。
+- 文件内容本身就是函数体（开头是几行 `//` 注释和 `const`，结尾是 `return { name, inject, apply }`），**原样粘贴即可**，不要包 `function(){}`，不要加 `import`。
+- 文件里的 `const REFIX_VERSION` / `SYMPTOMS` 等常量和 `//` 注释都在函数体内，合法。
+
+**坑 2：没有状态指示灯** —— 想知道活着没有：看 dsh 控制台那行 `dsh-refix p3.4 ready; contract OK...`，或喊一句 `refix_report`。
+
+**坑 3：重启即失忆** —— `reports` / `repairs` / `knowledge` 全在**内存**里。dsh web 进程重启后，插件本身要**重新挂载**，之前的知识库与修复记录**全部清零**。这是 V1.0x 的已知边界（持久化在后续计划里）。
+
+**坑 4：它不会自己发朋友圈** —— 插件只是"默默每 15s 巡检 + 记报告"，**不会主动弹消息**。必须主动问（或在挂载话术里授权会话模型替你问，见 QUICKSTART 第 3 步第 6-8 条）。
+
+**坑 5：审批是要你点的** —— 目标插件带客户端半区时，修复返回 `awaiting-approval`，这时**什么都没发生**，等你在 DSH 界面点批准。不点就一直挂着。这是 DSH 原生审批门，不能绕过，也**不要重复发起**。
+
 ## 验收矩阵（13/13 AC）
 
 | AC | 内容 | 证据 |
@@ -154,7 +317,7 @@ V1.1-pre2 手册版增量验收（2026-09-16）：`ac/upd2.ac.mts` **46/46 check
 
 ## 运行验收脚本
 
-验收脚本从本地 DSH checkout 只读导入源码（tsx 直跑），不依赖仓库改动。先把 `ac/*.mts` 与 `bench.mts` 中 `../../../deepseek-harness` 相对路径改为你的 DSH checkout 位置，然后：
+验收脚本从本地 DSH checkout 只读导入源码（tsx 直跑），不依赖仓库改动。**先把 `ac/*.mts` 与 `bench.mts` 中 `../../../deepseek-harness` 相对路径改为你的 DSH checkout 位置**（该 import 是**相对 `.mts` 文件本身**解析的，与 cwd 无关），然后在**仓库根目录**执行：
 
 ```bash
 node --import "file://<DSH-checkout>/node_modules/tsx/dist/loader.mjs" ac/p0.ac.mts
@@ -173,6 +336,12 @@ node --import "file://<DSH-checkout>/node_modules/tsx/dist/loader.mjs" ac/upd3.a
 `upd3.ac.mts` 会输出插件自带的 `[cordis:…]` 日志，只关心 `PASS/FAIL` 行时可过滤：`... | Where-Object { $_ -notmatch '^\[cordis:' }`。
 
 预期输出各脚本 `SELF-CHECK PASS`。注意脚本末尾 `process.exit(0)`：15s 巡检 interval 会吊住事件循环。
+
+脚本清单与运行提示（V1.0x 线八个：`p0 / p1 / p2 / p3 / p3r / p3r2 / p3r3 / ac52`；F6 线三个：`upd / upd2 / upd3`）：
+
+- Node 建议 ≥ 20（本机实测 v24.20.0）。
+- 单跑 `p3r` 约 45s（在等观察窗），别以为卡死了。
+- 验收脚本直接用**真实的** Cordis Context + DynamicCordisRunnerService，没有 mock runner。
 
 ## 已知边界（如实声明，V1.0x 范围外）
 
@@ -240,13 +409,15 @@ Only manages dynamic Cordis plugins (in-memory Plugin/Package/Run). Diagnosis is
 
 ### Quick start
 
-In a DSH session, ask the model:
+Three steps — copy-paste version in **[QUICKSTART.md](./QUICKSTART.md)**:
 
-> Define and run dsh-refix via cordis_define, host-side code from `versions/refix-v1.07.js`
+1. **Prerequisite check**: `dsh web --dump-config | findstr "id: tool-cordis"` — must print a row before you continue.
+2. **Fetch the source**: download just the one file you need — **no need to clone the repo**.
+3. **Mount**: paste the mount wording from QUICKSTART step 3. It asks the model to read the file and pass its full text as `code.host`, and authorises the model to run patrol / report / repair on your behalf afterwards (only the 15 s patrol is automatic inside the plugin; reporting and repair require a tool call).
 
-See **[QUICKSTART.md](./QUICKSTART.md)** for the beginner-facing guide (mount wording, tool usage, reading `outcome`, common pitfalls).
+Then the session has the `refix_report` / `refix_patrol` / `refix_repair` tools. One-sentence self-check: **"Call refix_report and show me dsh-refix's self-check report"**.
 
-Then use the `refix_report` / `refix_patrol` / `refix_repair` tools. One-sentence self-check: **"Call refix_report and show me dsh-refix's self-check report"**.
+See the Chinese 「使用者参考」 section above for tool parameters, the `outcome` / `phase` / `reason` tables, hash verification, rollback and the five pitfalls.
 
 Stage-3 acceptance (2026-09-16): `ac/upd3.ac.mts` **18/18 check PASS** on a real cordis Context + real ToolRuntime + real DynamicCordisRunnerService — default-off registers no global hook, the pure-JS SHA-256 matches `node:crypto` bit-for-bit, no approval channel fails closed with zero `define`, token mismatch denies without asking, an approved apply performs a real `define` + `run(update)` + observation window, observation failure rolls back automatically. The browser approval box itself is the one step not yet verified on a real machine.
 
