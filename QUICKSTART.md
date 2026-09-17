@@ -22,8 +22,42 @@
       name: '@deepseek-ai/dsh-tool-cordis'
 ```
 
-> 若 `cordis_*` 工具仍不出现，再补一行 `- id: cordis-host-runner` / `name: '@deepseek-ai/dsh-cordis-host-runner'`
-> —— `tool-cordis` 声明依赖 `dynamicCordisRunner`，缺了它的提供方，工具组会一直处于未激活状态。
+> 改 `cordis.patch.yml` 有一条**会把 dsh 整个搞起不来**的坑，见下面 ⚠️。改之前建议先复制一份备份。
+
+⚠️ **只加 `tool-cordis` 这一行，不要顺手把 `cordis-host-runner` 也加上。**
+
+web profile 的 `cordis-host-runner` 由 `@deepseek-ai/dsh-web-app` bundle **自带**（`packages/bundle/web-app/cordis.patch.yml` L122-123 已 insert），你再加一次会让 `dsh web` **直接启动失败**：
+
+```
+Error: dsh: plugin tree failed to load: failed to apply loader entry include (cordis:include):
+duplicate loader entry id: cordis-host-runner
+    at EntryGroup.update (vendor/loader/src/config/group.ts:64:31)
+```
+
+原因：patch 是**按层叠加进同一个数组**的（bundle 层 → 你的 profile 层 → `--patch` 覆盖层，`vendor/include/src/index.ts` L96-101），而数组里出现两个同名 id 会在装载时直接抛 `TypeError`（`vendor/loader/src/config/group.ts` L64）——**不是警告，是硬启动失败**。（2026-09-17 真机踩过，报错原文就是上面这段。）
+
+**加之前先查它到底在不在，别猜**（一条命令，几秒钟）：
+
+```bash
+dsh web --dump-config | findstr "id: cordis-host-runner"
+```
+
+- 有输出（至少一行 `- id: cordis-host-runner`）= **已经有了，别加**；
+- 没输出 = 你的 profile 栈里确实缺，这时才可以 `insert`。
+
+> `--dump-config` 是离线合成，**即使 dsh 已经被这个错误搞得起不来它也能跑**（实测 exit=0），所以它既是排查手段也是救援手段：数一下 `- id: cordis-host-runner` 出现几次，2 次就是重复了。
+
+**要"改"它而不是"加"它**（比如覆盖 config）：用**顶层同 id 覆盖**，不要再 `insert`——
+
+```yaml
+- id: cordis-host-runner
+  config:
+    # 只写你要覆盖的键
+```
+
+（背景：`tool-cordis` 声明 `inject: ['tools', 'systemPrompt', 'dynamicCordisRunner', 'cordisInspect']`，所以 `dynamicCordisRunner` 的提供方必须存在；web profile 下它**已经存在**，不用你操心。）
+
+**改坏了怎么救**：把多加的那几行删掉即可，dsh 从不改写你的 `cordis.patch.yml`。
 
 **第 3 条为什么绕不开**：dsh-refix 是"动态插件"，而 `cordis_define` 的参数 `code.host` 只接受**函数体字符串**
 —— DSH 没有"从网址或路径直接加载插件"的参数（宿主 `cordis-host-runner/src/index.ts` L156-160 就是校验这个字符串）。
@@ -323,9 +357,10 @@ dsh-refix 只是"默默在后台每 15s 巡检 + 记报告"。**它不会主动�
 ## 7. 想自己跑验收（可选，需要 Node）
 
 ```bash
-cd <仓库>/ac
+cd <仓库根目录>
 
-# 脚本用相对路径导入 DSH 源码：../../../deepseek-harness
+# 脚本内的 import 是相对 .mts 文件本身解析的，与 cwd 无关：
+# ac/../../../deepseek-harness —— 即 dsh-refix 与 deepseek-harness 同在 D:\AI-Workspace\ 之下
 # 若你的 DSH 不在这个相对位置，先改 ac/*.mts 与 bench.mts 顶部的 import 路径
 
 node --import "file:///<DSH-checkout>/node_modules/tsx/dist/loader.mjs" ac/p0.ac.mts
@@ -341,6 +376,15 @@ node --import "file:///<DSH-checkout>/node_modules/tsx/dist/loader.mjs" ac/p0.ac
 ---
 
 ## 8. 常见问题
+
+**Q：`dsh web` 起不来了，报 `duplicate loader entry id: xxx`？**
+你在 `cordis.patch.yml` 里 insert 了一个**已经被某个 bundle 层 insert 过**的 id（最典型就是 `cordis-host-runner`，见 §0 的 ⚠️）。修法：把重复的那几行删掉。定位方法：
+
+```bash
+dsh web --dump-config | findstr "id: <那个 id>"
+```
+
+出现 **2 次**就是重复了（正常应为 1 次）。注意 `--dump-config` 是离线合成，**dsh 已经起不来它也能跑**，所以别慌。
 
 **Q：模型说"我读不到这个文件"？**
 把完整绝对路径告诉它（§1 路 B）；实在读不到就走 §0.1 的**路 A**，让模型用 `web_fetch` 自己取，不依赖本地文件。

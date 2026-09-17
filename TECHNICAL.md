@@ -125,6 +125,10 @@ deploy/          # 部署辅助：tool-cordis 工具组 overlay（真机冒烟�
 
 web profile 的 `patchReload: 'live'` 使该文件**保存即热加载**（config-only HMR，无需重启 dsh web），新会话即拥有 `cordis_*` 工具。运行前提：host-runner 已随 web bundle 挂载（现状已满足）。
 
+> ⚠️ **不要为了"确保它存在"再 insert 一次 `cordis-host-runner`。** 它已由 `@deepseek-ai/dsh-web-app` bundle insert（`packages/bundle/web-app/cordis.patch.yml` L122-123）。patch 是**按层叠加进同一个数组**的（`vendor/include/src/index.ts` L96-101：bundle 层 → 用户 profile 层 → `--patch` 覆盖层），同一数组里出现两个同 id 会在装载时抛 `TypeError`（`vendor/loader/src/config/group.ts` L59-66）→ **`dsh web` 直接启动失败**（`Error: dsh: plugin tree failed to load: failed to apply loader entry include (cordis:include): duplicate loader entry id: cordis-host-runner`），不是警告。2026-09-17 真机踩过。
+>
+> 要**改**它（而非加它）用**顶层同 id 覆盖**：`- id: cordis-host-runner` + `config: {...}`（`applyEntryPatches` L110-124 会就地合并；`buildMap(insert)` L96-101 保证前一层的 insert 行可被后一层按 id 命中）。加之前可离线核对：`dsh web --dump-config | findstr "id: cordis-host-runner"`，出现 1 次即已有（该命令在 dsh 起不来时同样可用）。
+
 ## 验收矩阵（13/13 AC）
 
 | AC | 内容 | 证据 |
