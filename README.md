@@ -4,7 +4,7 @@
 
 [![GitHub topics](https://img.shields.io/badge/topic-dsh--plugin-blue)](https://github.com/ckk-09/dsh-refix) [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE)
 
-**中文** | English 见 [TECHNICAL.md](./TECHNICAL.md#english-technical)
+**中文** | [English](#english)
 
 ---
 
@@ -81,6 +81,94 @@
 | 全部技术细节：硬边界 B1~B6、诊断策略表、13/13 验收矩阵、8/8 回归、已知边界 | [TECHNICAL.md](./TECHNICAL.md) |
 | 每个阶段干了什么、踩过什么坑 | [reports/](./reports/) 目录（P0~P4 + P3R/P3R2/P3R3） |
 | 验收怎么跑 | [TECHNICAL.md 的「运行验收脚本」](./TECHNICAL.md#运行验收脚本) |
+
+## License
+
+[MIT](./LICENSE)
+
+---
+
+<a id="english"></a>
+
+# dsh-refix — a "family doctor" for your DSH plugins
+
+> **In one sentence**: a plugin caretaker that **checks health on its own, prescribes its own fixes, and keeps its own medical records**. When another plugin goes down, it notices first, fixes what it safely can, and honestly reports what it can't.
+
+[![GitHub topics](https://img.shields.io/badge/topic-dsh--plugin-blue)](https://github.com/ckk-09/dsh-refix) [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE)
+
+## What does it do for you?
+
+Imagine several dynamic plugins running inside your DSH session. One crashes, another throws, a third fails to render — previously you had to watch, diagnose and fix everything yourself. With dsh-refix:
+
+| Like a doctor who… | dsh-refix… | Capability |
+|---|---|---|
+| 🩺 **runs regular check-ups** | patrols every 15s + instantly on events, spotting "plugin X stopped", "method Y throws" | F1 Diagnose |
+| 💊 **prescribes from a formulary** | has a ready fix for every known symptom; unknown symptoms are **never touched**, only reported | F2 Prescribe |
+| 🏥 **treats, then observes** | a fix = a version switch followed by a 30s observation window; if it didn't hold, it **rolls back automatically** | F3 Repair |
+| 📒 **keeps medical records** | a recurring symptom reuses the proven fix; a fix that failed last time is never retried | F4 Iterate |
+| 📢 **calls for follow-ups** | injects an update notice with a **step-by-step manual** when a new version exists (never upgrades by itself) | F6 Update-check |
+
+**Three iron rules throughout**: diagnosis is strictly read-only; repair never deletes (never `undefine`); anything touching the browser requires your explicit approval.
+
+## Up and running in 3 minutes
+
+**Prerequisite**: your DSH session already has the `cordis_*` tools (how to enable them: step 0 of [QUICKSTART.md](./QUICKSTART.md)).
+
+**Step 1** — tell the DSH model:
+
+> Define and run dsh-refix via cordis_define, host-side code from `versions/refix-v1.07.js`
+
+**Step 2** — tell the model:
+
+> Call refix_report and show me dsh-refix's self-check report
+
+Seeing a JSON blob? Congratulations — the doctor is on duty. It works automatically from here; you only decide "fix or not" when it reports a symptom.
+
+**Step 3 (optional)**: "Patrol once with refix_patrol" for an instant health check; "Repair plugin X with refix_repair" to fix it.
+
+Stuck? → [QUICKSTART.md](./QUICKSTART.md) has the full wording, how to read `outcome`, and five pitfalls you will hit.
+
+## Which version should I pick?
+
+### ✅ Stable line (recommended for everyone)
+
+| Release | File | In one line |
+|---------|------|-------------|
+| V1.01 | `versions/refix-v1.01.js` | minimal skeleton: report tool works |
+| V1.02 | `versions/refix-v1.02.js` | adds automatic patrol |
+| V1.03 | `versions/refix-v1.03.js` | can treat (observe window + auto-rollback) |
+| V1.04 | `versions/refix-v1.04.js` | keeps records (knowledge base) |
+| V1.05 | `versions/refix-v1.05.js` | first security hardening pass |
+| V1.06 | `versions/refix-v1.06.js` | second review-fix pass |
+| **V1.07** | `versions/refix-v1.07.js` | **third review-fix pass — final of the V1.0x line, mount this one** |
+
+### ⚠️ Preview line (experimental — upgrade with caution)
+
+> **🚧 Warning: the V1.1-pre series is a preview of V1.1 with experimental, potentially breaking changes, subject to change or rollback at any time.**
+> **If unsure, stay on [V1.07](#-stable-line-recommended-for-everyone). If you must try, read the "Known limits" section of [TECHNICAL.md](./TECHNICAL.md) first.**
+
+| Release | File | What's new | Risk note |
+|---------|------|-----------|-----------|
+| V1.1-pre1 | `versions/refix-v1.1-pre1.js` | update probe + in-conversation update notice | experimental, unreleased |
+| V1.1-pre2 | `versions/refix-v1.1-pre2.js` | notice carries a **step-by-step manual** + external-text isolation | same |
+| V1.1-pre-updater | `versions/refix-updater-v1.1-pre.js` | separate "install new version" helper (**off by default**, asks for approval every time) | **the only capability in this repo that fetches code from the network and executes it** — experimental, potentially breaking; enable with care |
+
+## What it will NOT do (so you can relax)
+
+- ❌ Never deletes a plugin (repair only switches versions; old versions stay as undo points)
+- ❌ Never fetches and executes code from the network (the only exception is the off-by-default updater that asks for your explicit "allow once" every time)
+- ❌ Never touches your plugins without your consent (browser-side operations go through DSH's native approval flow — you decide)
+- ❌ Never invents fixes (unknown symptoms are reported, handled by a human)
+- ✅ Forgets everything on restart (records are not persisted) — by design: nothing is left on your machine
+
+## Want to dig deeper?
+
+| Looking for… | Go to |
+|---|---|
+| Step-by-step install and troubleshooting | [QUICKSTART.md](./QUICKSTART.md) |
+| Full technical detail: boundaries B1~B6, symptom policy table, 13/13 AC matrix, 8/8 regression, known limits | [TECHNICAL.md](./TECHNICAL.md) |
+| What each stage did and what pitfalls were hit | [reports/](./reports/) (P0~P4 + P3R/P3R2/P3R3) |
+| How to run acceptance | [Run the acceptance scripts](./TECHNICAL.md#运行验收脚本) |
 
 ## License
 
