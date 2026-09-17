@@ -1,19 +1,20 @@
-// dsh-refix v6（P3R2 复检修复版 p3.3）— 自诊断·自修复·自迭代插件
-// 在 v5 之上按复检报告修复：
-//   N-3  refix_patrol 调用点漏改（patrol 现为两参，删除多传的 null）→ pluginId 过滤真正生效
-//   N-1  expectedRetracts 泄漏：宿主 retract() 在无 run 时早退不发事件 → 登记前判 activeRun
-//        + executeRepair finally 清零兜底（停止态修复不再吞掉后续真实 run-missing）
-//   N-4  知识库写回仅 success/failed（awaiting-approval/refused 不再把可用处方降级为永久转人工）
-//   N-5  V-11 结论纠正：ToolExecutionInput.agent 就是调用者身份 → 三工具 execute(args, exec)，
-//        refix_repair 强制同会话校验（exec.agent.id !== row.agentId → refused 'cross-session'）
-//   N-2  activeKeys 环形上限（>400 删最旧）
-//   加固  inspectPackage 单次调用（预校验+指纹共用，空 catch 吞错消除）
-//   加固  观察窗水位改单调 reportSeq（reports.length 截断 shift 不再影响窗口判定）
-//   加固  V-4 判定删 pluginRunId===undefined 死分支（严格 === newRunId）
-//   加固  自身指纹改专用常量 REFIX_FINGERPRINT（'refix_report' 通用词不再误伤正常插件）
-//   加固  probeSkipped 每 10 轮巡检重试（同版本迟到注册 health 可复活）
-//   加固  三工具声明 timeoutMs；repair 阶段边界响应 exec.signal 取消
-const REFIX_VERSION = 'p3.3'
+// 【定版 V1.05】稳定版发布线 V1.0x（原开发代号 v5 / p3.2）
+// dsh-refix v5（P3 审查修复版 p3.2）— 自诊断·自修复·自迭代插件
+// 在 v4 之上按《dsh-refix 代码审查报告》修复：
+//   V-1  探针 2s 超时 + drain 5s 超时兜底 → 修复能力不再可能被挂起的 health 永久自锁
+//   V-2  自身识别（dynamic-package payload.name）→ 拒绝对 dsh-refix 自身修复（自毁 fiber 行为未定义）
+//   V-3  observeMs 钳制 [0, 120000]（isFinite 检查）
+//   V-4  观察窗判定精确到当前激活 attempt（evidence.pluginRunId === newRunId），旧 run 的迟落册报告不再误判
+//   V-5  suppressRunMissing（整段修复期屏蔽）→ expectedRetracts 计数（仅 refix 自己发起的 stop/update 各抵扣一次）
+//   V-6  probeSkipped 键带 packageId（插件新版本注册 health 后探针自动复活）
+//   V-7  知识库条目补 attempts/successes/failures 计数（行为仍保守：上次失败转人工）
+//   V-8  reports/repairs/knowledge 环形上限 + refix_report 可选 limit 参数
+//   V-10 runner 异常结构化兜底（catch → {outcome:'failed', phase:'exception'} 入审计）
+//   V-13 fallback === target 时置 null（不做假回退）
+//   O-2  switch 前用 inspectPackage 预校验目标包存在 → refused 'target-not-found'
+//   O-7  refix_patrol 支持可选 pluginId 过滤
+//   V-11/V-12/V-9/V-16/O-1/O-3~O-6：见 README 已知边界（如实声明或 v1 范围外）
+const REFIX_VERSION = 'p3.2'
 
 const CONTRACT = {
   dynamicCordisRunner: ['define', 'undefine', 'run', 'stop', 'inventory', 'snapshot', 'listPlugins', 'inspectPlugin', 'inspectPackage', 'reference'],
@@ -22,15 +23,12 @@ const CONTRACT = {
 const CONTRACT_EVENTS = ['cordis/dynamic-package', 'cordis/dynamic-retract', 'cordis/request-run', 'cordis/request-run-resolved']
 const PATROL_PERIOD_MS = 15000
 const OBSERVE_MS_DEFAULT = 30000 // §3 F3：切换后 30s 观察窗
-const OBSERVE_MS_MAX = 120000    // V-3：观察窗上限 2 分钟
-const PROBE_TIMEOUT_MS = 2000    // V-1：单探针超时
-const DRAIN_TIMEOUT_MS = 5000    // V-1：drain 兜底超时
-const CAPS = { reports: 100, repairs: 100, knowledge: 100, keys: 400 } // V-8/N-2：内存环形上限
-const PROBE_METHOD = 'health'
-const SELF_PLUGIN_NAME = 'dsh-refix'        // V-2 第一层锚点（name 前缀）
-const SELF_REPAIR_TOOL_TIMEOUT = 300000     // 加固③：修复工具超时（2×OBSERVE_MS_MAX + 余量）
-// V-2 第二层锚点（行为指纹）：宿主源码含本常量 = dsh-refix 自身。专用随机串避免误伤普通插件。
-const REFIX_FINGERPRINT = 'refix-self-fingerprint-a7f3'
+const OBSERVE_MS_MAX = 120000    // V-3：观察窗上限 2 分钟（工具参数来自模型，必须钳制）
+const PROBE_TIMEOUT_MS = 2000    // V-1：单探针超时（挂起的 health 不得拖住巡检/修复）
+const DRAIN_TIMEOUT_MS = 5000    // V-1：drain 兜底超时（防未知悬挂）
+const CAPS = { reports: 100, repairs: 100, knowledge: 100 } // V-8：内存环形上限
+const PROBE_METHOD = 'health'    // 巡检探针约定：受检插件可注册 health host 方法供巡检 invoke 探测
+const SELF_PLUGIN_NAME = 'dsh-refix' // V-2：自身识别锚点（cordis_define 的 name）
 
 // 策略表（§5）：症状 → 严重度 / 修复策略（repair 为 false = 需人工，只报告不动手）
 const SYMPTOMS = {
@@ -49,7 +47,7 @@ return {
   inject: ['dynamicCordisRunner', 'cordisInspect', 'agents', 'timer'],
   apply(ctx) {
     const runner = ctx.dynamicCordisRunner
-    const reports = []    // F1 诊断报告（内存态，环形上限）
+    const reports = []    // F1 诊断报告（内存态，V-8 环形上限）
     const knowledge = []  // F4 知识库（内存态，随插件卸载销毁）
     const repairs = []    // F3 修复记录
     let reportSeq = 0
@@ -58,9 +56,9 @@ return {
     let patrolCount = 0
     let repairing = false
     let ownPluginId = null // V-2：从自身激活事件捕获
-    const activeKeys = new Set()   // N-2：环形上限，>CAPS.keys 删最旧
-    const probeSkipped = new Set() // V-6：键 = pluginId|packageId，版本变化自动失效；每 10 轮重试
-    const expectedRetracts = new Map() // V-5/N-1：refix 自己发起的 retract 计数（登记前判 activeRun）
+    const activeKeys = new Set()
+    const probeSkipped = new Set() // V-6：键 = pluginId|packageId，版本变化自动失效
+    const expectedRetracts = new Map() // V-5：refix 自己发起的 stop/update 将产生的 retract 计数
     const recentEvents = []
     let lastSeen = {}
 
@@ -107,7 +105,7 @@ return {
     }
 
     function selfCheck(limit) {
-      return {
+      const view = {
         version: REFIX_VERSION,
         contract: { ok: contractMissing.length === 0, missing: contractMissing },
         baseline: lastSeen,
@@ -117,6 +115,7 @@ return {
         repairs: limit ? repairs.slice(-limit) : repairs,
         knowledge: knowledge,
       }
+      return view
     }
 
     // ── cordisInspect provider（只读自检视图）────────────────────────
@@ -145,13 +144,9 @@ return {
       const key = kind + '|' + pluginId + '|' + (evidence.pluginRunId || '') + '|' + (evidence.message || '')
       if (activeKeys.has(key)) return null
       activeKeys.add(key)
-      if (activeKeys.size > CAPS.keys) { // N-2：删最旧（Set 保序）
-        for (const oldest of activeKeys) { activeKeys.delete(oldest); break }
-      }
       reportSeq += 1
       const entry = {
         id: 'refix-r' + reportSeq,
-        seq: reportSeq, // 加固⑥：单调水位，观察窗判定不受环形截断影响
         ts: Date.now(),
         kind: kind,
         severity: meta.severity,
@@ -159,10 +154,13 @@ return {
         evidence: evidence,
         fixHint: meta.fixHint,
       }
-      reports.push(entry)
-      if (reports.length > CAPS.reports) reports.shift()
+      pushCapped(reports, entry, CAPS.reports)
       console.error('[refix] 症状 ' + kind + ' @ ' + pluginId + ' 严重度 ' + meta.severity)
       return entry
+    }
+    function pushCapped(arr, item, cap) { // V-8：丢最旧
+      arr.push(item)
+      if (arr.length > cap) arr.shift()
     }
 
     function noteEvent(name, payload) {
@@ -175,11 +173,11 @@ return {
       const found = []
       const latest = row.latestRun
 
-      // ① run 消失（V-5：仅当 retract 非 refix 自己预期发起时）
-      //    V-14 注：run-missing 通常发生在 !activeRun 时，此处 activeRun 仅在模型显式
-      //    指定 symptom='run-missing' 且插件实际运行时可达（语义=重启）。
+      // ① run 消失（修复进行中的插件抑制）
       if (prev && prev.activeRun && !row.activeRun && !(latest && IN_FLIGHT[latest.status])
-        && (expectedRetracts.get(row.pluginId) || 0) === 0) {
+        && !suppressRunMissing(row.pluginId)) {
+        // V-14 注：run-missing 通常发生在 !activeRun 时，此处 activeRun 仅在模型显式
+        // 指定 symptom='run-missing' 且插件实际运行时可达（语义=重启）。
         const retract = recentEvents.filter(function (e) {
           return e.event === 'cordis/dynamic-retract' && e.pluginId === row.pluginId
         }).slice(-1)[0]
@@ -222,12 +220,16 @@ return {
       return found.filter(Boolean)
     }
 
+    // V-5：该 pid 是否处于"refix 自己发起的 retract 待抵扣"状态
+    function suppressRunMissing(pluginId) {
+      return (expectedRetracts.get(pluginId) || 0) > 0
+    }
+
     /** 异步发射 health 探针；promise 收集进 probes 供观察窗 drain。 */
     function queueProbe(row, probes) {
       if (!row.activeRun) return
       const skipKey = row.pluginId + '|' + row.activeRun.packageId // V-6：按版本失效
-      // 加固⑤：每 10 轮巡检无视 skip 重试一次（同版本迟到注册 health 可复活）
-      if (probeSkipped.has(skipKey) && patrolCount % 10 !== 0) return
+      if (probeSkipped.has(skipKey)) return
       try {
         const probeRunId = row.activeRun.pluginRunId
         const probePid = row.pluginId
@@ -359,37 +361,37 @@ return {
     }
 
     // ── F3 执行：修复 = 版本切换 + 观察窗 + 自动回退 ─────────────────
-    async function executeRepair(plan, row, observeMs, signal) {
+    async function executeRepair(plan, row, observeMs) {
       const steps = []
-      // 加固⑥：观察窗水位 = 单调 reportSeq（reports.length 会因环形截断 shift 失真）
-      const windowStartSeq = reportSeq
+      // V-4：观察窗判定基线 = 修复起点的报告条数，且只认 evidence.pluginRunId === 本次
+      // 激活 attempt 的报告——旧 run 的迟落册探针报告不参与"修了还坏"判定。
+      const windowStart = reports.length
       const agent = ctx.agents ? ctx.agents.get(row.agentId) : undefined
       if (agent === undefined) {
         return { outcome: 'refused', reason: 'owner-session-not-live', detail: '归属会话不在线，无法取得授权 Agent' }
       }
       const markStep = (action, detail) => { steps.push({ ts: Date.now(), action: action, detail: detail }) }
-      const checkAborted = () => { if (signal && signal.aborted) throw new Error('tool call cancelled') }
 
-      // O-2 + V-2 第二层（合并单次 inspectPackage；空 catch 吞错消除）：
-      //   包不存在 → target-not-found；host 源码含 REFIX_FINGERPRINT → 自身，拒绝。
-      let hostSrc = ''
+      // O-2：switch 目标包预校验（给出准确错误，避免无谓状态扰动）
+      if (plan.action === 'switch') {
+        try {
+          runner.inspectPackage(agent, row.pluginId, plan.target)
+        } catch (e) {
+          markStep('precheck-failed', (e && e.message) || 'inspectPackage failed')
+          return { outcome: 'refused', phase: 'precheck', reason: 'target-not-found', detail: '候选修复版本不存在: ' + ((e && e.message) || e), steps: steps }
+        }
+      }
+
+      // V-2 第二层（行为指纹兜底）：目标包 host 源码含 refix 标志串 → 视为 dsh-refix
+      // 自身（或其衍生副本），拒绝修复。第一层 name 锚点在自定义命名时失效，此层不依赖命名。
       try {
         const pkg = runner.inspectPackage(agent, row.pluginId, plan.target)
-        hostSrc = (pkg && pkg.code && pkg.code.host) || ''
-      } catch (e) {
-        markStep('precheck-failed', (e && e.message) || 'inspectPackage failed')
-        return { outcome: 'refused', phase: 'precheck', reason: 'target-not-found', detail: '候选修复版本不存在: ' + ((e && e.message) || e), steps: steps }
-      }
-      if (hostSrc.indexOf(REFIX_FINGERPRINT) !== -1) {
-        markStep('self-repair-detected', '目标包源码含 dsh-refix 指纹')
-        return { outcome: 'refused', phase: 'precheck', reason: 'self-repair-forbidden', detail: '目标包是 dsh-refix 自身（源码指纹命中）。软重置会销毁自身 fiber，行为未定义；更新请用 cordis_define 追加新版本。', steps: steps }
-      }
-
-      // N-1：仅当确有活跃 run 会产生 retract 时才登记（宿主 retract() 在无 run 时早退不发事件，
-      // 无条件登记会让停止态修复泄漏计数、吞掉后续真实 run-missing）。
-      const expectRetract = () => {
-        if (row.activeRun) expectedRetracts.set(row.pluginId, (expectedRetracts.get(row.pluginId) || 0) + 1)
-      }
+        const hostSrc = (pkg && pkg.code && pkg.code.host) || ''
+        if (hostSrc.indexOf('refix_report') !== -1) {
+          markStep('self-repair-detected', '目标包源码含 dsh-refix 指纹')
+          return { outcome: 'refused', phase: 'precheck', reason: 'self-repair-forbidden', detail: '目标包是 dsh-refix 自身（源码指纹命中）。软重置会销毁自身 fiber，行为未定义；更新请用 cordis_define 追加新版本。', steps: steps }
+        }
+      } catch (e) { /* 源码读取失败交由 run() 的正常错误路径 */ }
 
       async function activate(packageId, mode, what) {
         markStep(what, 'run(' + packageId + ', ' + mode + ')')
@@ -397,83 +399,79 @@ return {
         return r
       }
 
-      try {
-        let r
-        if (plan.action === 'soft-reset') {
-          markStep('stop', '软重置第一步')
-          expectRetract() // V-5：自己的 stop 会产生一次 retract
-          const s = await runner.stop(agent, row.pluginId)
-          markStep('stopped', s.ok ? 'ok' : (s.message || s.reason))
-          r = await activate(plan.target, plan.mode, 'run-after-stop')
-        } else {
-          if (plan.mode === 'update') expectRetract() // V-5：热更新会撤旧 run
-          r = await activate(plan.target, plan.mode, 'run')
-        }
-        if (!r.ok) {
-          markStep('activation-failed', r.message)
-          return { outcome: 'failed', phase: 'activation', detail: r.message, steps: steps }
-        }
-        const newRunId = r.pluginRunId // V-4：观察窗判定的 attempt 锚点
-        if (r.status === 'awaiting-approval' || r.status === 'starting') {
-          markStep('awaiting-approval', '客户端半区已提交原生审批流')
-          return {
-            outcome: 'awaiting-approval', status: r.status,
-            detail: '客户端半区修复需用户在页面批准/拒绝；批准后可再巡检确认', steps: steps,
-            packageId: r.packageId, pluginRunId: r.pluginRunId,
-          }
-        }
-
-        // 观察窗：水位 = windowStartSeq（单调），判定严格锚定本次激活 attempt
-        markStep('observe', '观察窗 ' + observeMs + 'ms')
-        await ctx.timeout(observeMs)
-        checkAborted() // 加固③：阶段边界响应取消
-        const round = await patrol('repair-observe')
-        await Promise.race([round.drain, ctx.timeout(DRAIN_TIMEOUT_MS)]) // V-1：兜底超时
-        const newForTarget = reports.filter(function (rep) {
-          return rep.seq > windowStartSeq
-            && rep.pluginId === row.pluginId
-            && rep.evidence.pluginRunId === newRunId // V-4：严格锚定（死分支已删）
-        })
-        if (newForTarget.length === 0) {
-          markStep('observed-clean', '观察窗内无新症状')
-          return { outcome: 'success', steps: steps, detail: '修复后观察窗无症状' }
-        }
-
-        // 修了还坏 → 自动回退（V-13：fallback === target 时 plan.fallback 已为 null，不进来）
-        if (plan.fallback) {
-          const backMode = deriveMode(plan.target, plan.fallback)
-          const backStartSeq = reportSeq // 先于回退 run 截取：无竞态
-          markStep('rollback', '修复无效，自动回退 run(' + plan.fallback + ', ' + backMode + ')')
-          if (backMode === 'update') expectRetract()
-          const back = await runner.run(agent, row.pluginId, plan.fallback, backMode)
-          if (!back.ok) {
-            markStep('rollback-failed', back.message)
-            return { outcome: 'failed', phase: 'rollback', detail: '修复无效且回退失败: ' + back.message, steps: steps }
-          }
-          const backRunId = back.pluginRunId
-          markStep('rolled-back', '已回退至 ' + plan.fallback)
-          await ctx.timeout(observeMs)
-          checkAborted()
-          const backRound = await patrol('repair-rollback-observe')
-          await Promise.race([backRound.drain, ctx.timeout(DRAIN_TIMEOUT_MS)])
-          const newAfterBack = reports.filter(function (rep) {
-            return rep.seq > backStartSeq
-              && rep.pluginId === row.pluginId
-              && rep.evidence.pluginRunId === backRunId
-          })
-          return {
-            outcome: 'failed', phase: 'repair-invalid', steps: steps,
-            detail: '修复无效（观察窗内出现新症状），已自动回退至 ' + plan.fallback
-              + (newAfterBack.length === 0 ? '，回退版本无症状' : '，但回退版本仍有症状，需人工'),
-            rollback: { from: plan.target, to: plan.fallback, clean: newAfterBack.length === 0 },
-          }
-        }
-        markStep('no-rollback', '无旧版本可回退')
-        return { outcome: 'failed', phase: 'repair-invalid', detail: '修复无效且无旧版本可回退，需人工', steps: steps }
-      } finally {
-        // N-1 纵深：修复结束后该 pid 不应残留任何预期 retract 计数
-        expectedRetracts.delete(row.pluginId)
+      let r
+      if (plan.action === 'soft-reset') {
+        markStep('stop', '软重置第一步')
+        expectRetract(row.pluginId) // V-5：自己的 stop 会产生一次 retract
+        const s = await runner.stop(agent, row.pluginId)
+        markStep('stopped', s.ok ? 'ok' : (s.message || s.reason))
+        r = await activate(plan.target, plan.mode, 'run-after-stop')
+      } else {
+        if (plan.mode === 'update') expectRetract(row.pluginId) // V-5：热更新会撤旧 run
+        r = await activate(plan.target, plan.mode, 'run')
       }
+      if (!r.ok) {
+        markStep('activation-failed', r.message)
+        return { outcome: 'failed', phase: 'activation', detail: r.message, steps: steps }
+      }
+      const newRunId = r.pluginRunId // V-4：观察窗判定的 attempt 锚点
+      if (r.status === 'awaiting-approval' || r.status === 'starting') {
+        markStep('awaiting-approval', '客户端半区已提交原生审批流')
+        return {
+          outcome: 'awaiting-approval', status: r.status,
+          detail: '客户端半区修复需用户在页面批准/拒绝；批准后可再巡检确认', steps: steps,
+          packageId: r.packageId, pluginRunId: r.pluginRunId,
+        }
+      }
+
+      // 观察窗：起点 = 修复起点（windowStart），判定只认 newRunId 的报告
+      markStep('observe', '观察窗 ' + observeMs + 'ms')
+      await ctx.timeout(observeMs)
+      const round = await patrol('repair-observe')
+      await Promise.race([round.drain, ctx.timeout(DRAIN_TIMEOUT_MS)]) // V-1：兜底超时
+      const newForTarget = reports.slice(windowStart).filter(function (rep) {
+        return rep.pluginId === row.pluginId
+          && (rep.evidence.pluginRunId === undefined || rep.evidence.pluginRunId === newRunId)
+      })
+      if (newForTarget.length === 0) {
+        markStep('observed-clean', '观察窗内无新症状')
+        return { outcome: 'success', steps: steps, detail: '修复后观察窗无症状' }
+      }
+
+      // 修了还坏 → 自动回退（V-13：fallback === target 时 plan.fallback 已为 null，不进来）
+      if (plan.fallback) {
+        const backMode = deriveMode(plan.target, plan.fallback)
+        const backStart = reports.length // 先于回退 run 调用截取：无竞态
+        markStep('rollback', '修复无效，自动回退 run(' + plan.fallback + ', ' + backMode + ')')
+        if (backMode === 'update') expectRetract(row.pluginId)
+        const back = await runner.run(agent, row.pluginId, plan.fallback, backMode)
+        if (!back.ok) {
+          markStep('rollback-failed', back.message)
+          return { outcome: 'failed', phase: 'rollback', detail: '修复无效且回退失败: ' + back.message, steps: steps }
+        }
+        const backRunId = back.pluginRunId
+        markStep('rolled-back', '已回退至 ' + plan.fallback)
+        await ctx.timeout(observeMs)
+        const backRound = await patrol('repair-rollback-observe')
+        await Promise.race([backRound.drain, ctx.timeout(DRAIN_TIMEOUT_MS)])
+        const newAfterBack = reports.slice(backStart).filter(function (rep) {
+          return rep.pluginId === row.pluginId
+            && (rep.evidence.pluginRunId === undefined || rep.evidence.pluginRunId === backRunId)
+        })
+        return {
+          outcome: 'failed', phase: 'repair-invalid', steps: steps,
+          detail: '修复无效（观察窗内出现新症状），已自动回退至 ' + plan.fallback
+            + (newAfterBack.length === 0 ? '，回退版本无症状' : '，但回退版本仍有症状，需人工'),
+          rollback: { from: plan.target, to: plan.fallback, clean: newAfterBack.length === 0 },
+        }
+      }
+      markStep('no-rollback', '无旧版本可回退')
+      return { outcome: 'failed', phase: 'repair-invalid', detail: '修复无效且无旧版本可回退，需人工', steps: steps }
+    }
+
+    // V-5：登记一次 refix 自己即将发起的 retract
+    function expectRetract(pluginId) {
+      expectedRetracts.set(pluginId, (expectedRetracts.get(pluginId) || 0) + 1)
     }
 
     // ── 修复工具 ─────────────────────────────────────────────────────
@@ -483,19 +481,18 @@ return {
         + ' symptom 省略时取该插件最近一条诊断报告；同症状此前修复成功过 → 直接复用历史方案（跳过策略推导）；'
         + ' targetPackageId 显式指定候选修复版本（优先于知识库）；'
         + ' 客户端半区自动走 DSH 原生审批流（不等待结果）。观察窗默认 30000ms、上限 120000ms。'
-        + ' 权限：仅可修复与调用者同会话的插件（跨会话拒绝）；不得对 dsh-refix 自身调用。',
+        + ' 权限说明：修复以目标插件归属会话的授权执行（V-11 限制，非调用者身份校验）；不得对 dsh-refix 自身调用。',
       parameters: {
-        pluginId: { type: 'string', required: true, description: '目标动态插件 ID（须与调用者同会话；不得为 dsh-refix 自身）' },
+        pluginId: { type: 'string', required: true, description: '目标动态插件 ID（不得为 dsh-refix 自身）' },
         symptom: { type: 'string', description: '要修复的症状 kind（省略=该插件最近一条报告）' },
         targetPackageId: { type: 'string', description: '候选修复版本 packageId（省略=策略表/历史方案）' },
         observeMs: { type: 'integer', description: '观察窗时长 ms，默认 30000，上限 120000' },
       },
-      timeoutMs: SELF_REPAIR_TOOL_TIMEOUT, // 加固③
       output: {
         schema: { type: 'string' },
         render(_args, value) { return [{ type: 'text', text: value }] },
       },
-      async execute(args, exec) { // N-5：exec 携带调用者身份与取消信号
+      async execute(args) {
         if (contractMissing.length > 0) {
           return JSON.stringify({ outcome: 'refused', reason: 'contract-incompatible', missing: contractMissing }, null, 2)
         }
@@ -514,13 +511,6 @@ return {
           const row = liveRow(args.pluginId)
           if (row === undefined) {
             return JSON.stringify({ outcome: 'refused', reason: 'plugin-not-found', detail: 'inventory 中无此插件' }, null, 2)
-          }
-          // N-5：同会话校验（调用者身份来自 ToolExecutionInput.agent；缺失时放行并注明）
-          if (exec && exec.agent && exec.agent.id !== row.agentId) {
-            return JSON.stringify({
-              outcome: 'refused', reason: 'cross-session',
-              detail: '目标插件归属会话 ' + row.agentId + '，与调用者会话 ' + exec.agent.id + ' 不一致，拒绝修复',
-            }, null, 2)
           }
           // 症状选择：显式指定 > 该插件最近一条报告
           let symptom = args.symptom
@@ -577,35 +567,32 @@ return {
           }
           let result
           try {
-            result = await executeRepair(plan, row, observeMs, exec && exec.signal)
+            result = await executeRepair(plan, row, observeMs)
           } catch (e) {
             // V-10：runner 异常结构化兜底，审计不丢条目
             result = { outcome: 'failed', phase: 'exception', detail: '修复执行异常: ' + ((e && e.message) || e), steps: [] }
           }
           record.outcome = result.outcome
           record.result = result
-          repairs.push(record)
-          if (repairs.length > CAPS.repairs) repairs.shift()
+          pushCapped(repairs, record, CAPS.repairs)
 
-          // F4：知识库记录（N-4：仅 success/failed 写回；awaiting-approval/refused 不降级处方）
+          // F4：知识库记录（新处方入册；复用命中则更新原条目的最新结果）
           if (knowledgeHit) {
             const prior = latestKnowledge(fingerprint)
-            if (prior && prior.id === knowledgeHit.id
-              && (result.outcome === 'success' || result.outcome === 'failed')) {
+            if (prior && prior.id === knowledgeHit.id) {
               prior.outcome = result.outcome
               if (result.outcome === 'success') prior.successes = (prior.successes || 0) + 1
-              else prior.failures = (prior.failures || 0) + 1 // V-7
+              else if (result.outcome === 'failed') prior.failures = (prior.failures || 0) + 1 // V-7
             }
           } else if (result.outcome === 'success' || result.outcome === 'failed') {
             knowledgeSeq += 1
-            knowledge.push({
+            pushCapped(knowledge, {
               id: 'refix-k' + knowledgeSeq, ts: Date.now(),
               fingerprint: fingerprint, symptom: record.symptom,
               action: plan.action, target: plan.target,
               outcome: result.outcome, fromRepair: record.id, hits: 0,
               attempts: 0, successes: result.outcome === 'success' ? 1 : 0, failures: result.outcome === 'failed' ? 1 : 0, // V-7
-            })
-            if (knowledge.length > CAPS.knowledge) knowledge.shift()
+            }, CAPS.knowledge)
           }
 
           const summary = Object.assign({}, result, {
@@ -618,7 +605,7 @@ return {
           })
           return JSON.stringify(summary, null, 2)
         } finally {
-          // V-1：observeMs/drain/timeoutMs 均有界 → 本 finally 必然执行，状态机必然复位
+          // V-1：observeMs/drain 均有界 → 本 finally 必然执行，状态机必然复位
           repairing = false
         }
       },
@@ -632,7 +619,6 @@ return {
       parameters: {
         limit: { type: 'integer', description: '只返回最近 N 条 reports/repairs（省略=全量）' },
       },
-      timeoutMs: 15000, // 加固③
       output: {
         schema: { type: 'string' },
         render(_args, value) { return [{ type: 'text', text: value }] },
@@ -649,15 +635,13 @@ return {
       parameters: {
         pluginId: { type: 'string', description: '只巡检该插件（省略=全量）' },
       },
-      timeoutMs: 30000, // 加固③
       output: {
         schema: { type: 'string' },
         render(_args, value) { return [{ type: 'text', text: value }] },
       },
       async execute(args) {
         const onlyPid = args && args.pluginId ? args.pluginId : null
-        // N-3：patrol 现为两参签名（P3R 删 suppressPid 时漏改此处致过滤恒失效）
-        const round = await patrol(onlyPid ? 'manual:' + onlyPid : 'manual:refix_patrol', onlyPid)
+        const round = await patrol(onlyPid ? 'manual:' + onlyPid : 'manual:refix_patrol', null, onlyPid)
         await Promise.race([round.drain, ctx.timeout(DRAIN_TIMEOUT_MS)]) // V-1
         return JSON.stringify({ triggered: 'manual', onlyPid: onlyPid, newSymptoms: round.fresh, patrolCount: patrolCount }, null, 2)
       },

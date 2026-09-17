@@ -6,8 +6,8 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { AGENT_A, defineAndRun, definePkg, refixPatrol, refixReport, runPkg, setup, sleep } from './bench.mts'
 
-const REFIX_V1 = readFileSync(new URL('../versions/refix-v1-p0.js', import.meta.url), 'utf8')
-const REFIX_V2 = readFileSync(new URL('../versions/refix-v2-p1.js', import.meta.url), 'utf8')
+const REFIX_V1 = readFileSync(new URL('../versions/refix-v1.01.js', import.meta.url), 'utf8')
+const REFIX_V2 = readFileSync(new URL('../versions/refix-v1.02.js', import.meta.url), 'utf8')
 const PATIENT_OK = readFileSync(new URL('../versions/patient-v1.js', import.meta.url), 'utf8')
 const PATIENT_BROKEN = readFileSync(new URL('../versions/patient-v2-broken.js', import.meta.url), 'utf8')
 

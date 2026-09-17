@@ -8,7 +8,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { AGENT_A, callTool, defineAndRun, refixReport, setup } from './bench.mts'
 
-const REFIX_V4 = readFileSync(new URL('../versions/refix-v4-p3.js', import.meta.url), 'utf8')
+const REFIX_V4 = readFileSync(new URL('../versions/refix-v1.04.js', import.meta.url), 'utf8')
 const BROKEN_VARIANT = REFIX_V4.replace("'inventory',", "'inventory2',")
 assert.notEqual(BROKEN_VARIANT, REFIX_V4, '变体构造应生效')
 

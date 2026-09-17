@@ -1,3 +1,4 @@
+// 【定版 V1.1-pre-updater】前瞻版本（原开发代号 updater v1/u1）⚠️ 含实验性改动，默认关闭，慎重启用
 // dsh-refix-updater v1（F6 阶段 3 · peer updater，宿主强制门 + 一次性令牌）
 //
 // 定位：dsh-refix 在会话内的**同会话 peer 插件**，唯一职责 = 在**用户显式批准**后，

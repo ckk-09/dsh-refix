@@ -14,7 +14,7 @@ import SystemPrompt from '../../../deepseek-harness/packages/core/system-prompt/
 import ToolRegistry from '../../../deepseek-harness/packages/core/tools/src/index.ts'
 import DynamicCordisRunnerService from '../../../deepseek-harness/packages/extensions/cordis-host-runner/src/index.ts'
 
-const REFIX_HOST = readFileSync(new URL('../versions/refix-v1-p0.js', import.meta.url), 'utf8')
+const REFIX_HOST = readFileSync(new URL('../versions/refix-v1.01.js', import.meta.url), 'utf8')
 const PATIENT_HOST = readFileSync(new URL('../versions/patient-v1.js', import.meta.url), 'utf8')
 
 // ── 最小 bench ───────────────────────────────────────────────────────────────

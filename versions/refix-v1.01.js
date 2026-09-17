@@ -1,3 +1,4 @@
+// 【定版 V1.01】稳定版发布线 V1.0x（原开发代号 v1 / p0.1；README 与 QUICKSTART 统一使用定版号）
 // dsh-refix v1（P0 骨架）— 自诊断·自修复·自迭代插件
 // 宿主半：契约探测（F5）+ inventory 基线（F1 前置）+ cordisInspect provider + refix_report 工具
 // 边界（需求 §2）：诊断只读；修复仅 run/stop；不碰文件系统与网络。

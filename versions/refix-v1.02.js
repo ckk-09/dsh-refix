@@ -1,3 +1,4 @@
+// 【定版 V1.02】稳定版发布线 V1.0x（原开发代号 v2 / p1.1）
 // dsh-refix v2（P1 诊断）— 自诊断·自修复·自迭代插件
 // 在 v1（契约探测 + 基线 + inspect provider + refix_report）之上新增：
 //   F1 事件订阅（dynamic-package / dynamic-retract）+ 周期巡检（timer 服务 15s）+ 按需巡检（refix_patrol）

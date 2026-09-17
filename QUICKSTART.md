@@ -2,7 +2,7 @@
 
 > 目标：**从"文件躺在硬盘上"到"dsh 会话里能用三个工具"**，全程只需要复制粘贴两段话。
 >
-> 适用版本：`versions/refix-v7-p3r3.js`（v7 / p3.4，当前推荐）
+> 适用版本：`versions/refix-v1.07.js`（v7 / p3.4，当前推荐）
 > 本文所有命令与结论均于 2026-09-16 在本机实跑验证（8/8 验收脚本 PASS）。
 
 ---
@@ -33,7 +33,7 @@
 ```text
 请用 cordis_define 定义并运行 dsh-refix，步骤：
 
-1. 先读取文件 D:\AI-Workspace\workspace\dsh-refix\versions\refix-v7-p3r3.js 的全部内容
+1. 先读取文件 D:\AI-Workspace\workspace\dsh-refix\versions\refix-v1.07.js 的全部内容
 2. 该文件的全部内容本身就是一段「返回 Cordis Plugin 的 JavaScript 函数体」，
    原样作为 code.host 传入（不要改一个字，不要加 import/export）
 3. plugin 参数：kind:"new", idPrefix:"refix"
@@ -210,7 +210,7 @@ dsh-refix 只是"默默在后台每 15s 巡检 + 记报告"。**它不会主动�
 
 ```text
 用 cordis_define（kind:"existing", pluginId:"<你的 refix pluginId>"）
-把 versions/refix-v6-p3r2.js 的内容作为 code.host 追加为新版本，
+把 versions/refix-v1.06.js 的内容作为 code.host 追加为新版本，
 然后用 cordis_run（mode:"update"）切过去
 ```
 
@@ -220,13 +220,13 @@ dsh-refix 只是"默默在后台每 15s 巡检 + 记报告"。**它不会主动�
 
 | 文件 | 版本 | 说明 |
 |------|------|------|
-| `refix-v1-p0.js` | v1 | 骨架：契约探测 + 基线 |
-| `refix-v2-p1.js` | v2 | 诊断：事件订阅 + 巡检 |
-| `refix-v3-p2.js` | v3 | 修复：策略表 + 观察窗 |
-| `refix-v4-p3.js` | v4 | 迭代：知识库 |
-| `refix-v5-p3r.js` | v5 | P3R 审查修复（16 缺陷） |
-| `refix-v6-p3r2.js` | v6 | P3R2 复检修复 |
-| **`refix-v7-p3r3.js`** | **v7** | **P3R3 复检修复（当前推荐）** |
+| `refix-v1.01.js` | v1 | 骨架：契约探测 + 基线 |
+| `refix-v1.02.js` | v2 | 诊断：事件订阅 + 巡检 |
+| `refix-v1.03.js` | v3 | 修复：策略表 + 观察窗 |
+| `refix-v1.04.js` | v4 | 迭代：知识库 |
+| `refix-v1.05.js` | v5 | P3R 审查修复（16 缺陷） |
+| `refix-v1.06.js` | v6 | P3R2 复检修复 |
+| **`refix-v1.07.js`** | **v7** | **P3R3 复检修复（当前推荐）** |
 
 ---
 

@@ -27,7 +27,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { AGENT_A, defineAndRun, refixReport, setup, sleep } from './bench.mts'
 
-const V9 = readFileSync(new URL('../versions/refix-v9-upd2.js', import.meta.url), 'utf8')
+const V9 = readFileSync(new URL('../versions/refix-v1.1-pre2.js', import.meta.url), 'utf8')
 const PATIENT_OK = readFileSync(new URL('../versions/patient-v1.js', import.meta.url), 'utf8')
 
 const REPORT_SECTION = 'update'

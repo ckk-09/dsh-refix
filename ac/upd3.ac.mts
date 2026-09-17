@@ -40,8 +40,8 @@ import { createHash } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { AGENT_A, defineAndRun, setup, sleep, callTool, type Harness } from './bench.mts'
 
-const UPDATER = readFileSync(new URL('../versions/refix-updater-v1.js', import.meta.url), 'utf8')
-const V9 = readFileSync(new URL('../versions/refix-v9-upd2.js', import.meta.url), 'utf8')
+const UPDATER = readFileSync(new URL('../versions/refix-updater-v1.1-pre.js', import.meta.url), 'utf8')
+const V9 = readFileSync(new URL('../versions/refix-v1.1-pre2.js', import.meta.url), 'utf8')
 
 const REFIX_FP = 'refix-self-fingerprint-a7f3'
 const UPDATER_FP = 'refix-updater-fingerprint-b4e1'
