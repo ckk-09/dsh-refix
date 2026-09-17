@@ -2,7 +2,7 @@
 
 > **一句话**：它是一个会**自己体检、自己开药、自己记病历**的 DSH 插件保姆，别的插件出事了它先发现，能修的它自己修，修不好它会老实告诉你。
 
-[![GitHub topics](https://img.shields.io/badge/topic-dsh--plugin-blue)](https://github.com/ckk-09/dsh-refix) [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE)
+[![GitHub topics](https://img.shields.io/badge/topic-dsh--plugin-blue)](https://github.com/ckk-09/dsh-refix) [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE) [![DSH Market](https://raw.githubusercontent.com/2BingLing/dsh-market/master/assets/readme/badge-listed-zh.svg)](https://dsh.market/)
 
 **中文** | [English](#english)
 
