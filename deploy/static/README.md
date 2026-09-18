@@ -4,20 +4,20 @@
 目的是**去掉"第 3 步必须贴一段挂载话术"和"源码必须经模型回填一次"这两个障碍**：
 装它不需要任何模型参与，装完即随 dsh 启动自动起来。
 
-> 源码是**同一个**：`versions/refix-v1.07.js`（V1.07 / p3.4）。
-> 本目录里的脚本只做「形态转换 + 验证」，不改插件逻辑 —— 插件体 612 行逐字节照搬。
+> 源码是**同一个**：`versions/refix-v1.08.js`（V1.08 / p3.7）。
+> 本目录里的脚本只做「形态转换 + 验证」，不改插件逻辑 —— 插件体 654 行逐字节照搬。
 
-**当前发布：V1.2**（产物 `dist/dsh-refix-1.2.0.tgz`）。安装就一条命令：
+**当前发布：V1.3**（产物 `dist/dsh-refix-1.3.0.tgz`）。安装就一条命令：
 
 ```bash
-dsh plugin --profile web add https://raw.githubusercontent.com/ckk-09/dsh-refix/main/deploy/static/dist/dsh-refix-1.2.0.tgz
+dsh plugin --profile web add https://raw.githubusercontent.com/ckk-09/dsh-refix/main/deploy/static/dist/dsh-refix-1.3.0.tgz
 ```
 
 **两条版本线，别混**：
 
-- **V1.2** —— 静态包（本目录）的**发布线**，记在 `versions/manifest.json` 的 `static` 段；
-- **V1.07 / p3.4** —— 插件**逻辑**版本，源码是 `versions/refix-v1.07.js`。
-  V1.2 的插件体与它 **612 行逐字节相同**：这一版改的是交付形态，不是功能。
+- **V1.3** —— 静态包（本目录）的**发布线**，记在 `versions/manifest.json` 的 `static` 段；
+- **V1.08 / p3.7** —— 插件**逻辑**版本，源码是 `versions/refix-v1.08.js`。
+  V1.3 的插件体与它 **654 行逐字节相同**，随源码带上六项独立审查修复。
 
 构建器据此分开取值：`pkgVersion` 优先读 `manifest.static.packageVersion`，插件自报版本仍从源码里抠。
 
@@ -27,12 +27,12 @@ dsh plugin --profile web add https://raw.githubusercontent.com/ckk-09/dsh-refix/
 
 | 文件 | 作用 |
 |---|---|
-| `build-static.mjs` | 转换器：`versions/refix-v*.js` → 静态包目录（`dist/dsh-refix/`），`--pack` 顺带出 tgz |
+| `build-static.mjs` | 转换器：`versions/refix-v*.js` → 静态包目录（默认 `packages/dsh-refix/`），`--pack` 顺带出 tgz |
 | `test-static.mjs` | 离线冒烟测试：用**假 ctx** 驱动真实模块，两条路径（真 `defineTool` / 内置兜底编译器） |
 | `boot-test.mjs` | 真机启动验证：隔离 profile 起真 dsh，**不过滤**日志抓就绪行 / 降级告警 / 树加载失败 |
 | `dump-config-check.mjs` | 配置树探针：`--dump-config` 离线核对 `- id: <x>` 计数，专治 `duplicate loader entry id` |
-| `dist/dsh-refix/` | 构建产物（不入库，可由 tgz 解出） |
-| `dist/dsh-refix-<ver>.tgz` | **发布物**（入库）—— "一行命令安装"的载体。当前为 `dsh-refix-1.2.0.tgz` |
+| `packages/dsh-refix/` | 构建产物（**入库**：根 `package.json` 与 `packages/` 子包是 DSH 插件市场的 CI 拾取面） |
+| `dist/dsh-refix-<ver>.tgz` | **发布物**（入库）—— "一行命令安装"的载体。当前为 `dsh-refix-1.3.0.tgz` |
 
 ---
 
@@ -42,13 +42,14 @@ dsh plugin --profile web add https://raw.githubusercontent.com/ckk-09/dsh-refix/
 # 1) 结构断言（不落盘）：源哈希、inject 补齐、3 个 defineTool 调用点、禁用 API 零命中
 node deploy/static/build-static.mjs --check
 
-# 2) 构建 + 打包（产出 dist/dsh-refix/ 与 dist/dsh-refix-<ver>.tgz，并打印 tgz sha256）
+# 2) 构建 + 打包（产出 packages/dsh-refix/ 与 dist/dsh-refix-<ver>.tgz，并打印 tgz sha256）
 node deploy/static/build-static.mjs --pack
 
 # 3) 离线冒烟：真 defineTool 路径（应无降级告警）
-node deploy/static/test-static.mjs
+#    注意：必须显式给出模块入口；脚本内置默认值仍指向 df843d2 之前的旧产物目录
+node deploy/static/test-static.mjs packages/dsh-refix/lib/index.js
 #    离线冒烟：强制兜底编译器路径（应**有**降级告警且仍注册 3 个工具）
-node deploy/static/test-static.mjs --fallback
+node deploy/static/test-static.mjs --fallback packages/dsh-refix/lib/index.js
 
 # 4) 真机启动（需要已装进某个 profile，见第三节）
 node deploy/static/boot-test.mjs --profile <隔离profile>
@@ -65,7 +66,7 @@ node deploy/static/boot-test.mjs --profile <隔离profile>
 
 ```bash
 # 装（tgz 形式，推荐；<profile> 换成你的 profile 名，一般就是 web）
-dsh plugin --profile <profile> add https://raw.githubusercontent.com/ckk-09/dsh-refix/main/deploy/static/dist/dsh-refix-1.2.0.tgz
+dsh plugin --profile <profile> add https://raw.githubusercontent.com/ckk-09/dsh-refix/main/deploy/static/dist/dsh-refix-1.3.0.tgz
 
 # 装（本地 tgz：网络到 raw.githubusercontent.com 不通时，先下下来再装）
 dsh plugin --profile <profile> add "<本地 tgz 的绝对路径>"
@@ -84,7 +85,7 @@ dsh plugin --profile <profile> remove dsh-refix
 **装好的标志** —— 启动 dsh 后控制台出现这一行（宿主输出，不是模型说的话）：
 
 ```
-dsh-refix p3.4 ready; contract OK (兼容性自检通过); baseline plugins: N; patrol every 15000ms
+dsh-refix p3.7 ready; contract OK (兼容性自检通过); baseline plugins: N; patrol every 15000ms
 ```
 
 ⚠️ 用 `--profile web` 前建议先确认目标 profile 名；想试又不想动自己的配置，可用隔离 profile：
@@ -130,9 +131,9 @@ dsh --profile <任意新名字> --from-default-profile web --dump-config   # 造
   就得逐文件下载 4 个东西，这个方案相对动态包就白做了。
 - **tgz 的 sha256 不可复现**（tar header 带文件 mtime，重打一次哈希就变），所以
   **不要把 tgz 哈希写进文档做校验**。要校验就校验**解包后的 `lib/index.js`**：
-  它与 `versions/refix-v1.07.js` 的源哈希一一对应（`--check` 会打印两者）。
+  它与 `versions/refix-v1.08.js` 的源哈希一一对应（`--check` 会打印两者）。
 - 已冻结的源文件 sha256 见 `TECHNICAL.md`；`lib/index.js` 的字节数随构建器逻辑与头部注释变化而变化
-  （两级解析后 40725B，V1.2 加发布版本行后 40771B，最初是 38797B），因此**它只与同一构建器版本可比**。
+  （两级解析后 40725B，V1.2 加发布版本行后 40771B，V1.3 = 43574B，最初是 38797B），因此**它只与同一构建器版本可比**。
 
 ---
 

@@ -54,9 +54,12 @@ const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b)
 const CALLS = { tools: [], inspect: [], intervals: [], events: [], effects: [] }
 const READY_LINES = []
 
-/** 假 dynamicCordisRunner：CONTRACT 里点名的每个方法都要是函数（自检会逐个 typeof 检查）。 */
+/** 假 dynamicCordisRunner：CONTRACT 里点名的每个方法都要是函数（自检会逐个 typeof 检查）。
+ * V1.08（I-1）起 CONTRACT 收录 invoke——真实宿主本就有该方法（V1.07 探针即无条件调用），
+ * mock 必须补上，否则 F5 会正确地报 contract-incompatible 并降级只读。 */
 const runner = {
   define() {}, undefine() {}, run() {}, stop() {},
+  invoke() { return { ok: true } },
   inventory() { return [] },
   snapshot() { return {} },
   listPlugins() { return [] },
@@ -176,7 +179,7 @@ const toolNames = CALLS.tools.map(t => t.name)
 ok(eq(toolNames, ['refix_repair', 'refix_report', 'refix_patrol']), '注册 3 个工具且顺序正确', toolNames)
 
 const readyLine = READY_LINES.find(line => line.includes('ready; contract'))
-ok(readyLine !== undefined && readyLine.includes('dsh-refix p3.4 ready; contract OK (兼容性自检通过)'),
+ok(readyLine !== undefined && readyLine.includes('dsh-refix p3.7 ready; contract OK (兼容性自检通过)'),
   '就绪行含 "contract OK (兼容性自检通过)"', readyLine)
 ok(readyLine !== undefined && readyLine.includes('patrol every 15000ms'), '就绪行含 "patrol every 15000ms"', readyLine)
 
@@ -217,9 +220,11 @@ const patrol = CALLS.tools.find(t => t.name === 'refix_patrol')
 
 const reportOut = await report.execute({}, {})
 const reportJson = JSON.parse(reportOut)
-ok(reportJson.version === 'p3.4', 'refix_report 返回 version p3.4', reportJson.version)
+ok(reportJson.version === 'p3.7', 'refix_report 返回 version p3.7', reportJson.version)
 ok(reportJson.contract?.ok === true && eq(reportJson.contract.missing, []), 'refix_report 自检 contract.ok === true', reportJson.contract)
-ok(reportJson.patrolCount === 0, 'refix_report 初始 patrolCount === 0', reportJson.patrolCount)
+// V1.08（I-2）起 refix_report 走 patrol('report') 检测路径：report 本身就是一轮真实检测
+// （先判定后推进基线），与 refix_patrol 手动巡检同语义计数，故首轮 report 后 patrolCount === 1。
+ok(reportJson.patrolCount === 1, 'refix_report 首轮即完成一轮检测（patrolCount === 1，I-2 行为变化）', reportJson.patrolCount)
 ok(Array.isArray(reportJson.reports) && Array.isArray(reportJson.repairs), 'refix_report 返回 reports/repairs 数组')
 
 const patrolOut = await patrol.execute({}, {})

@@ -1,30 +1,3 @@
-/**
- * dsh-refix v1.3.0 — DSH **静态**（profile 层）构建。自动生成，请勿手改。
- *
- *   生成器  deploy/static/build-static.mjs
- *   生成源  versions/refix-v1.08.js
- *   源 sha256  0cf42e50428fef2e2dd1aebb189b7a62515eddfaa47f1eec2fb5896d217f4066
- *   插件自报版本  p3.7（V1.08）
- *   静态包发布  V1.3（package 1.3.0）
- *
-  *   inject 已补齐：源码 ["dynamicCordisRunner","cordisInspect","agents","timer"]
- *              → 静态 ["dynamicCordisRunner","cordisInspect","agents","timer","tools"]
- *   原因：沙箱 facade 对 `ctx.tools` 是**无条件**放行的（guard.ts L755 `if (prop === 'tools') return tools`），
- *   所以动态源码不必把 tools 写进 inject；真实 cordis ctx 里它是服务属性，未声明就读会抛
- *   `cannot get property "tools" without inject`，整棵插件树加载失败。构建期机器补齐，勿手改。
- *
- * 与动态包（cordis_define + cordis_run）的语义差异表：
- *   harness.defineTool  → 模块顶层**两级**解析 @deepseek-ai/dsh-tools 的 defineTool：
- *                         L1 裸说明符 → L2 $DSH_HOME/profiles/node_modules 投影目录
- *                         （pnpm symlink 安装时 L1 必失败，靠 L2 命中安装侧同一份）；
- *                         两级都不可达才退化为内置 DSL→JSON Schema 编译器并打印降级告警。
- *                         调用点逐字节照搬未改写；
- *   ctx.tools.register  → 真 ctx 原生方法（沙箱那个 marker 校验是真 register 没有的）；
- *   inject              → 见上，构建期补齐；
- *   其余 ctx 用法（ctx.get / on / effect / timeout / interval / cordisInspect.register）
- *                        → 真实 ctx 与沙箱 facade 语义一致，逐字节照搬未改写。
- */
-
 // 【定版 V1.08】稳定版发布线 V1.0x —— 独立审查（2026-09-18）修复版（基线 V1.07 / p3.4）
 // dsh-refix — 自诊断·自修复·自迭代插件。本版按独立审查报告六项缺陷修复：
 //   I-1(🔴P1/N-1) CONTRACT.dynamicCordisRunner 补 'invoke'——消除 F5 契约自检对探针调用面的盲区
@@ -70,119 +43,10 @@ const SYMPTOMS = {
 // 版本切换进行中的状态：retract 事件先于新 run 建立，此时不得误报 run 消失
 const IN_FLIGHT = { 'starting-host': true, 'client-pending': true, 'awaiting-approval': true }
 
-/**
- * 真 ctx 上重现沙箱注入的 `harness`。静态等价物只有 `defineTool` 一项：
- *   harness.registerTool(ctx, tool) 在静态下就是 ctx.tools.register(tool)（真 register 无 marker 校验），
- *   harness.handle 是动态包客户端半区 RPC，静态包不需要。
- * 解析顺序（两级，顶层 await；**任何一步失败都不能让模块加载抛错**，
- * 否则整棵 profile 插件树加载失败、dsh 起不来）：
- *   L1 裸说明符 '@deepseek-ai/dsh-tools' —— 本包以**实体目录**安装时命中；
- *   L2 `$DSH_HOME/profiles/node_modules` —— 宿主 healProfilesModuleFallback
- *      （app-boot/src/profile.ts L547）把安装侧依赖闭包投影在这里。
- *      **pnpm 以 symlink 安装本包时 L1 必然失败**：Node 会先把本模块 realpath 回源目录，
- *      再沿源目录链路向上找依赖，而那条链路里没有 @deepseek-ai/*；此时只能靠 L2。
- *   L3 内置 schema 编译器（L1/L2 都不可达时启用，并打印一条告警）。
- * DSH home 语义：显式路径 > $DSH_HOME > ~/.dsh（util/home-paths/src/index.ts L12/L18/L62）。
- */
-import { createRequire } from 'node:module'
-import { pathToFileURL } from 'node:url'
-import { homedir } from 'node:os'
-import { join } from 'node:path'
-
-async function loadHostDefineTool() {
-  const pick = mod => {
-    const fn = mod?.defineTool ?? mod?.default?.defineTool
-    return typeof fn === 'function' ? fn : null
-  }
-  try {
-    const fn = pick(await import('@deepseek-ai/dsh-tools'))
-    if (fn) return fn
-  } catch (_) { /* 落到 L2 */ }
-
-  const bases = []
-  const envHome = process.env && process.env.DSH_HOME
-  if (typeof envHome === 'string' && envHome.trim() !== '') {
-    bases.push(join(envHome.trim(), 'profiles', 'node_modules'))
-  }
-  try { bases.push(join(homedir(), '.dsh', 'profiles', 'node_modules')) } catch (_) {}
-
-  const requireFromHere = createRequire(import.meta.url)
-  for (const base of bases) {
-    try {
-      const entry = requireFromHere.resolve('@deepseek-ai/dsh-tools', { paths: [base] })
-      const fn = pick(await import(pathToFileURL(entry).href))
-      if (fn) return fn
-    } catch (_) { /* 下一个候选 */ }
-  }
-  return null
-}
-
-const defineToolImpl = await loadHostDefineTool()
-if (defineToolImpl === null) {
-  console.error('[refix] 静态包：未能解析 @deepseek-ai/dsh-tools'
-    + '（已尝试裸说明符与 $DSH_HOME/profiles/node_modules 投影目录）；'
-    + '改用内置 schema 编译器。工具参数将不做运行期校验，其余行为不变。')
-}
-
-/* ── 内置兜底：DSL → JSON Schema（仅在 @deepseek-ai/dsh-tools 不可达时启用）── */
-const FALLBACK_SCALARS = new Set(['string', 'number', 'integer', 'boolean', 'null'])
-const FALLBACK_ANNOTATIONS = ['description', 'title']
-
-function fallbackCopyAnnotations(from, to) {
-  for (const key of FALLBACK_ANNOTATIONS) if (from[key] !== undefined) to[key] = from[key]
-  if (from.enum !== undefined) to.enum = from.enum.slice()
-  if (from.const !== undefined) to.const = from.const
-  if (from.default !== undefined) to.default = from.default
-  if (from.examples !== undefined) to.examples = from.examples
-}
-
-function fallbackValueSchema(node) {
-  const out = {}
-  if (node === null || typeof node !== 'object') return { type: 'json' }
-  if (node.type === 'object') {
-    out.type = 'object'
-    out.properties = fallbackPropertyMap(node.properties ?? {})
-    out.additionalProperties = node.additionalProperties !== false
-    return out
-  }
-  if (node.type === 'array') {
-    out.type = 'array'
-    if (node.items !== undefined) out.items = fallbackValueSchema(node.items)
-    return out
-  }
-  out.type = FALLBACK_SCALARS.has(node.type) ? node.type : 'json'
-  fallbackCopyAnnotations(node, out)
-  return out
-}
-
-function fallbackPropertyMap(spec) {
-  const properties = {}
-  for (const key of Object.keys(spec)) properties[key] = fallbackValueSchema(spec[key])
-  return properties
-}
-
-/**
- * 兜底 defineTool：与宿主同签名，把 DSL 编译成 JSON Schema 后原样返回 definition。
- * 不做运行期参数校验（那是宿主 defineTool 的额外职责）。
- */
-function fallbackDefineTool(options) {
-  if (options === null || typeof options !== 'object') throw new Error('harness.defineTool options must be an object')
-  const spec = options.parameters ?? {}
-  const required = Object.keys(spec).filter(key => spec[key] && spec[key].required === true)
-  const parameters = { type: 'object', properties: fallbackPropertyMap(spec) }
-  if (required.length > 0) parameters.required = required
-  return { ...options, parameters }
-}
-
-
-const harness = {
-  defineTool: defineToolImpl ?? fallbackDefineTool,
-}
-
-export const name = "dsh-refix"
-export const inject = ["dynamicCordisRunner","cordisInspect","agents","timer","tools"]
-
-export function apply(ctx) {
+return {
+  name: 'dsh-refix',
+  inject: ['dynamicCordisRunner', 'cordisInspect', 'agents', 'timer'],
+  apply(ctx) {
     const runner = ctx.dynamicCordisRunner
     const reports = []    // F1 诊断报告（内存态，环形上限）
     const knowledge = []  // F4 知识库（内存态，随插件卸载销毁）
@@ -837,4 +701,5 @@ export function apply(ctx) {
     console.log('dsh-refix ' + REFIX_VERSION + ' ready; contract '
       + (contractMissing.length === 0 ? 'OK (兼容性自检通过)' : 'MISSING: ' + contractMissing.join(', '))
       + '; baseline plugins: ' + Object.keys(lastSeen).length + '; patrol every ' + PATROL_PERIOD_MS + 'ms')
+  },
 }

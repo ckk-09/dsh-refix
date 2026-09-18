@@ -1,5 +1,7 @@
 // 【定版 V1.1-pre-updater】前瞻版本（原开发代号 updater v1/u1）⚠️ 含实验性改动，默认关闭，慎重启用
-// dsh-refix-updater v1（F6 阶段 3 · peer updater，宿主强制门 + 一次性令牌）
+// dsh-refix-updater v1.1（F6 阶段 3 · peer updater，宿主强制门 + 一次性令牌）
+// 独立审查（2026-09-18）修复：I-4（N-4）doApply 补调用者同会话校验——
+//   ticketId + confirm 令牌即使泄漏到其他会话，也无法在异会话触发升级（与本体 N-5 权限模型对齐）。
 //
 // 定位：dsh-refix 在会话内的**同会话 peer 插件**，唯一职责 = 在**用户显式批准**后，
 // 把版本源上的新版本源码装入运行态；观察窗内失败则自动回滚。
@@ -539,6 +541,14 @@ return {
       if (t.consumed) return { outcome: 'refused', reason: 'ticket-already-used' }
       if (Date.now() > t.expiresAt) { tickets.delete(ticketId); return { outcome: 'refused', reason: 'ticket-expired' } }
       if (confirm !== t.token) return { outcome: 'refused', reason: 'approval-token-mismatch' }
+      // I-4（N-4 纵深）：调用者会话必须与票据归属会话一致。doCheck 有 agentFromExec，
+      // doApply 原本只验票据+令牌——票据若经日志/上下文泄漏到其他会话，异会话模型可触发升级。
+      if (exec && exec.agent && exec.agent.id && exec.agent.id !== t.agentId) {
+        return {
+          outcome: 'refused', reason: 'cross-session',
+          detail: '调用者会话 ' + exec.agent.id + ' 与票据归属会话 ' + t.agentId + ' 不一致，拒绝执行升级',
+        }
+      }
 
       const steps = []
       const mark = function (action, detail) { steps.push({ ts: Date.now(), action: action, detail: detail }) }

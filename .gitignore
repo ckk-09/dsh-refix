@@ -10,3 +10,6 @@ node_modules/
 # 必须让它可被抓取。tgz 同样入库 —— 它是"一行命令安装"的唯一载体。
 # 安装（push 后即可用）：
 #   dsh plugin --profile web add https://raw.githubusercontent.com/<owner>/<repo>/main/deploy/static/dist/dsh-refix-<ver>.tgz
+
+# 内部审查包：只留本地，不入库
+/REVIEW-*.md

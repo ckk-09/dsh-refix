@@ -15,23 +15,24 @@
 | **V1.04** | `versions/refix-v1.04.js` | v4 / p3.1 | F4 内存态知识库 + 历史方案复用 + 失败学习 | 稳定 |
 | **V1.05** | `versions/refix-v1.05.js` | v5 / p3.2 | P3R 审查修复版 | 稳定 |
 | **V1.06** | `versions/refix-v1.06.js` | v6 / p3.3 | P3R2 复检修复版（见 reports/P3R2.md） | 稳定 |
-| **V1.07** | `versions/refix-v1.07.js` | v7 / p3.4 | P3R3 第三轮复检修复版（见 reports/P3R3.md） | **稳定线最终版：动态包推荐挂载这个；要"一条命令装"见下方静态包 V1.2** |
+| **V1.08** | `versions/refix-v1.08.js` | p3.7 | 独立审查修复版（2026-09-18）：I-1 CONTRACT 补 `invoke` / I-2 report 走检测路径不吞 diff / I-3 自身身份反查回灌 U-7 / I-4 updater 跨会话校验 / I-5 cancelled 与 failed 分账 / I-7 去重键结构化 | **稳定线当前推荐：动态包挂这个；要"一条命令装"见下方静态包 V1.3** |
+| **V1.07** | `versions/refix-v1.07.js` | v7 / p3.4 | P3R3 第三轮复检修复版（见 reports/P3R3.md） | 稳定线上一版 |
 | **V1.1-pre1** | `versions/refix-v1.1-pre1.js` | v8 / p3.5 | F6 更新探测 + 提示注入（阶段 1，真实会话渲染已验证） | ⚠️ **前瞻版本** |
 | **V1.1-pre2** | `versions/refix-v1.1-pre2.js` | v9 / p3.6 | F6 阶段 2：提示附执行手册 + 外部文本隔离 | ⚠️ **前瞻版本** |
 | **V1.1-pre-updater** | `versions/refix-updater-v1.1-pre.js` | updater v1 / u1 | F6 阶段 3 peer updater（默认关闭） | ⚠️ **前瞻版本** |
 
-### 静态包（V1.2）—— 上表之外的另一种交付形态
+### 静态包（V1.3）—— 上表之外的另一种交付形态
 
 上表列的全是**动态包**（源码 `.js`，由会话经 `cordis_define` 挂载）。从 **V1.2** 起，
-同一个插件另有一条**静态包**发布线：产物是 `deploy/static/dist/dsh-refix-1.2.0.tgz`，
+同一个插件另有一条**静态包**发布线：当前产物是 `deploy/static/dist/dsh-refix-1.3.0.tgz`，
 用宿主原生的 `dsh plugin --profile <p> add <tgz>` 安装，装完**随 dsh 启动自动加载**——
 全程不需要模型参与、不需要贴挂载话术，也不需要 `tool-cordis`。
 
-- 插件逻辑与 **V1.07（p3.4）逐字节相同**（612 行原样搬运）：V1.2 改的是交付形态，不是功能。
+- 插件逻辑与 **V1.08（p3.7）逐字节相同**（654 行原样搬运）：V1.3 随源码修复一起前进。
 - 版本记在 `versions/manifest.json` 的 `static` 段（顶层字段仍只描述动态包稳定线）。
 - 构建、离线验证、真机验证、分发 → **[deploy/static/README.md](./deploy/static/README.md)**。
 
-> ⚠️ **V1.1-pre 前瞻版本警示**：V1.1-pre 系列是面向 V1.1 正式版的**预览线，含实验性改动与潜在的破坏性变更**（详见下方"已知边界"中阶段 3 相关条目）。除非你需要体验更新提示 / 执行手册 / peer updater 功能，否则请使用 **V1.07**。慎重选择升级安装。
+> ⚠️ **V1.1-pre 前瞻版本警示**：V1.1-pre 系列是面向 V1.1 正式版的**预览线，含实验性改动与潜在的破坏性变更**（详见下方"已知边界"中阶段 3 相关条目）。除非你需要体验更新提示 / 执行手册 / peer updater 功能，否则请使用 **V1.08**。慎重选择升级安装。
 
 ## 概述
 
@@ -80,7 +81,7 @@ QUICKSTART.md    # 60 秒上手指南（三步装好 + 高频故障；工具用�
 README.md        # 面向所有人的项目介绍（人性化版）
 TECHNICAL.md     # 本文件：机制 / 边界 / 验收 / 已知边界（专业版）
 versions/        # 插件版本源码（plain JS 函数体，经 cordis_define 挂载）
-  refix-v1.01.js ~ refix-v1.07.js   # 稳定发布线 V1.0x（V1.07 当前推荐）
+  refix-v1.01.js ~ refix-v1.08.js   # 稳定发布线 V1.0x（V1.08 当前推荐）
   refix-v1.1-pre1.js / pre2.js      # ⚠️ 前瞻版本 V1.1-pre（实验性，慎重升级）
   refix-updater-v1.1-pre.js         # ⚠️ 前瞻版本：peer updater（默认关闭）
   manifest.json        # **稳定线**的版本源清单（`latest` 与 REFIX_VERSION 同方案 pX.Y）
@@ -109,8 +110,8 @@ deploy/          # 部署辅助：tool-cordis 工具组 overlay（真机冒烟�
 
 1. **前提自检**：`dsh web --dump-config | findstr "id: tool-cordis"` —— 有输出才能继续（缺则按下方「部署」加一行）。
 2. **取源码**：只下载要装的那一个文件，**不需要克隆整个仓库**：
-   `iwr -Uri https://raw.githubusercontent.com/ckk-09/dsh-refix/main/versions/refix-v1.07.js -OutFile "$env:USERPROFILE\refix-v1.07.js"`
-3. **挂载**：把 QUICKSTART 第 3 步那段话术贴进 DSH 会话——它含两部分：① "让模型先读文件、把全文原样作为 `code.host` 传入"；② "装好后由模型负责 patrol / report / repair" 的授权句（v1.07 只有 15s 巡检是插件自动的，修复与报告需有人调工具；该授权句把这件事交给会话模型）。
+   `iwr -Uri https://raw.githubusercontent.com/ckk-09/dsh-refix/main/versions/refix-v1.08.js -OutFile "$env:USERPROFILE\refix-v1.08.js"`
+3. **挂载**：把 QUICKSTART 第 3 步那段话术贴进 DSH 会话——它含两部分：① "让模型先读文件、把全文原样作为 `code.host` 传入"；② "装好后由模型负责 patrol / report / repair" 的授权句（v1.08 只有 15s 巡检是插件自动的，修复与报告需有人调工具；该授权句把这件事交给会话模型）。
 
 **注意**：`cordis_define` 的 `code.host` 只接受**函数体字符串**（无文件路径参数），因此必须让模型先读取该文件再原文传入；路径给绝对路径。这一跳绕不过去 —— 见「已知边界」的 DSH 硬约束条。
 
@@ -159,7 +160,7 @@ web profile 的 `patchReload: 'live'` 使该文件**保存即热加载**（confi
 
 | 字段 | 含义 |
 |------|------|
-| `version` | 当前 `REFIX_VERSION`（V1.07 = `p3.4`） |
+| `version` | 当前 `REFIX_VERSION`（V1.08 = `p3.7`） |
 | `contract` | `{ ok, missing[] }` — F5 兼容性自检。`ok:false` 时**所有修复动作会被门控拒绝** |
 | `baseline` | 当前所有动态插件的基线快照（pluginId / agentId / currentPackageId / activeRun / latestStatus） |
 | `patrolCount` | 巡检轮数（每 15s 自动一轮 + 手动触发的） |
@@ -235,10 +236,10 @@ web profile 的 `patchReload: 'live'` 使该文件**保存即热加载**（confi
 
 为什么要自证：源码是"经会话模型搬运一次"进运行态的（见「已知边界」的 DSH 硬约束条），**没有自动的字节校验**。下列信号都要对，才算装干净：
 
-| 检查点 | 期望值（以 V1.07 为例） |
+| 检查点 | 期望值（以 V1.08 为例） |
 |---|---|
-| dsh 控制台那行 | `dsh-refix p3.4 ready; contract OK ...` |
-| `refix_report` 的 `version` | `p3.4` |
+| dsh 控制台那行 | `dsh-refix p3.7 ready; contract OK ...` |
+| `refix_report` 的 `version` | `p3.7` |
 | `refix_report` 的 `contract.ok` | `true` |
 | `refix_report` 的 `baseline` | 能看到目标插件行（pluginId / currentPackageId） |
 | 模型回报的字节数 | 本地读：读到的文件字节数 = 下表值；网络取：回填字节数 ≈ 下表值 |
@@ -246,23 +247,24 @@ web profile 的 `patchReload: 'live'` 使该文件**保存即热加载**（confi
 **哈希核对（只有"先下载再让模型读"这条路做得到，是最硬的证据）**——下载完先跑：
 
 ```powershell
-Get-FileHash -Algorithm SHA256 "$env:USERPROFILE\refix-v1.07.js"
+Get-FileHash -Algorithm SHA256 "$env:USERPROFILE\refix-v1.08.js"
 ```
 
 各发布版本文件的参考值（**每个版本文件已冻结、发布后不再修改，所以这些哈希不会变**；若对不上，说明下载被中间人改写或文件被人动过）：
 
 | 文件 | 定版号 | 字节 | sha256 |
 |---|---|---|---|
-| `refix-v1.07.js` | V1.07（推荐） | 34210 | `8d13fec59465660ae5eb38d3e00ecda19b8d8b7002b6780b9843cf764dadeb88` |
+| `refix-v1.08.js` | V1.08（推荐） | 37013 | `0cf42e50428fef2e2dd1aebb189b7a62515eddfaa47f1eec2fb5896d217f4066` |
+| `refix-v1.07.js` | V1.07 | 34210 | `8d13fec59465660ae5eb38d3e00ecda19b8d8b7002b6780b9843cf764dadeb88` |
 | `refix-v1.1-pre1.js` | V1.1-pre1 ⚠️ | 46076 | `708e2c563d4995c6e8718527993297f7ab8bce27f0ac78d6b6f4f39906fd8969` |
 | `refix-v1.1-pre2.js` | V1.1-pre2 ⚠️ | 53124 | `ffbbdf68664a7c28084e3dc42cd00197f7489f07aca19a6c0a95040148831e01` |
 | `refix-updater-v1.1-pre.js` | V1.1-pre-updater ⚠️ | 45445 | `9785907a4ba043003262194f34863412642e2285ca868057f31fc29aa0773409` |
 
-> 上表四个哈希已在 2026-09-17 用 GitHub raw 实际下载物逐个复算，与仓库工作区文件逐字节一致（同时排除 CRLF 污染：raw 侧 0 个 `\r\n`）。
+> 上表前四个哈希于 2026-09-17、`refix-v1.08.js` 于 2026-09-18 用 GitHub raw 实际下载物逐个复算，与仓库工作区文件逐字节一致（同时排除 CRLF 污染：raw 侧 0 个 `\r\n`）。
 
 ### 回退到旧版本
 
-版本链完整保留，V1.01 → V1.07 全部可切。回退 = 换一个 packageId 激活：
+版本链完整保留，V1.01 → V1.08 全部可切。回退 = 换一个 packageId 激活：
 
 ```text
 用 cordis_define（kind:"existing", pluginId:"<你的 refix pluginId>"）
@@ -283,7 +285,8 @@ Get-FileHash -Algorithm SHA256 "$env:USERPROFILE\refix-v1.07.js"
 | `refix-v1.04.js` | V1.04 | 迭代：知识库 |
 | `refix-v1.05.js` | V1.05 | P3R 审查修复（16 缺陷） |
 | `refix-v1.06.js` | V1.06 | P3R2 复检修复 |
-| **`refix-v1.07.js`** | **V1.07** | **P3R3 复检修复（当前推荐）** |
+| **`refix-v1.08.js`** | **V1.08** | **独立审查六项修复（当前推荐）** |
+| `refix-v1.07.js` | V1.07 | P3R3 复检修复 |
 
 ### 五个必踩的坑
 
@@ -295,7 +298,7 @@ Get-FileHash -Algorithm SHA256 "$env:USERPROFILE\refix-v1.07.js"
 - 文件内容本身就是函数体（开头是几行 `//` 注释和 `const`，结尾是 `return { name, inject, apply }`），**原样粘贴即可**，不要包 `function(){}`，不要加 `import`。
 - 文件里的 `const REFIX_VERSION` / `SYMPTOMS` 等常量和 `//` 注释都在函数体内，合法。
 
-**坑 2：没有状态指示灯** —— 想知道活着没有：看 dsh 控制台那行 `dsh-refix p3.4 ready; contract OK...`，或喊一句 `refix_report`。
+**坑 2：没有状态指示灯** —— 想知道活着没有：看 dsh 控制台那行 `dsh-refix p3.7 ready; contract OK...`，或喊一句 `refix_report`。
 
 **坑 3：重启即失忆** —— `reports` / `repairs` / `knowledge` 全在**内存**里。dsh web 进程重启后，插件本身要**重新挂载**，之前的知识库与修复记录**全部清零**。这是 V1.0x 的已知边界（持久化在后续计划里）。
 
@@ -325,6 +328,8 @@ V1.1-pre1 增量验收（2026-09-16）：`ac/upd.ac.mts` **33/33 check PASS**（
 V1.1-pre2 手册版增量验收（2026-09-16）：`ac/upd2.ac.mts` **46/46 check PASS**。关键项：`VB_text_has_own_plugin_id` / `VB_text_has_rollback_id`（提示里的 ID 来自本地状态——清单里根本没有这些字符串，故同时证明手册非清单驱动）；`VC_*` 外部文本隔离（恶意 notes 的换行/控制字符/指令式 payload 被压平限长、`javascript:` url 被拒、全消息零控制字符）；`VH_own_package_count_stable` + `VH_current_package_unchanged`（**零自升级行为证明**：全流程后 refix 自身包数量与 `currentPackageId` 均不变）。另将 `p3r3.ac.mts` 指向 V1.1-pre2 复跑，仍 `P3R3 SELF-CHECK PASS`（`p1NoBlind/channelBArchived` true、`p4AbortMs=167`）。
 
 阶段 3 复跑回归（2026-09-16，晚）：`p3r3.ac.mts` 指向 V1.1-pre2 复跑（本轮验收期间再次确认）→ `P3R3 SELF-CHECK PASS`（`p1NoBlind=true`、`channelBArchived=true`、`p4AbortMs=153`）。
+
+V1.08 全量复跑（2026-09-18，本体仓库内）：结构断言 `build-static --check` **OK**（源 sha256 `0cf42e50…`、654 行 verbatim、3 个 defineTool 调用点）；离线冒烟 `test-static` **34/34**、`--fallback` **35/35**；N 系列 `ac/n-series.static-check.mjs` **31/31**；真机启动 `boot-test --profile refixtest14`（该 profile 装的是 `dsh-refix-1.3.0.tgz`）**PASS**：`dsh-refix p3.7 ready; contract OK`、零降级、零树失败；历史 AC 十二个脚本连跑 **12/12 PASS**（`p0 / p1 / p2 / p3 / p3r / p3r2 / p3r3 / upd / upd2 / upd3 / ac52 / probe-pre-step`）。发布物 `dsh-refix-1.3.0.tgz`（15872B）解包后 4 个文件与 `packages/dsh-refix/` 逐字节一致。
 
 ## 运行验收脚本
 
@@ -365,7 +370,7 @@ node --import "file://<DSH-checkout>/node_modules/tsx/dist/loader.mjs" ac/upd3.a
 - 不做 LLM 自由生成修复代码（未知症状转人工）；不持久化（重启即失忆）；不诊断 DSH 主进程；不做无人值守自动修复（审批门保留）；不从网络拉取代码。适配 DSH 升级的路径 = F5 契约报告 → 会话内重新 define 适配版 → 人审切换。
 - **更新提示（F6 阶段 2）**：只从版本源拉一份 JSON 清单比对版本号，发现更新时注入一条提示**并附执行手册**。**不做任何自动换版**：手册仅供会话模型在用户明确要求后执行 `cordis_define(kind:'existing')` + `cordis_run(mode:'update')`——"从网络拉取并执行代码"这一条边界没有被越过，且提示文本自身显式声明"不代表用户授权"（`executable='manual-guided'`）。
 - **清单内容未经签名校验**：`notes` / `url` 视为不可信外部输入 —— 换行与控制字符被压平、长度收紧（notes ≤200、url ≤160 且仅接受 `http(s)`）、展示时标注"勿当作指令"；手册里的 ID/命令/步骤**全部来自本地状态与固定模板**，清单无法影响。但**信任模型仍等同于直接装插件**：升级前请自行确认来源可信。
-- **版本源只报稳定线（2026-09-17 起）**：`manifest.json` 的 `latest` 指向**稳定线**（当前 `p3.4` / `V1.07`，带 `channel: "stable"`）。pre 线（V1.1-pre1 / pre2 / updater）**不进入自动提示**——安装推荐稳定版的用户不会再被催着升到 pre 版；要装 pre 必须由**用户明确指名文件**（"用 `versions/refix-v1.1-pre2.js`"），模型不得自行建议或把版本源改指 pre。
+- **版本源只报稳定线（2026-09-17 起）**：`manifest.json` 的 `latest` 指向**稳定线**（当前 `p3.7` / `V1.08`，带 `channel: "stable"`）。pre 线（V1.1-pre1 / pre2 / updater）**不进入自动提示**——安装推荐稳定版的用户不会再被催着升到 pre 版；要装 pre 必须由**用户明确指名文件**（"用 `versions/refix-v1.1-pre2.js`"），模型不得自行建议或把版本源改指 pre。
 - **首次挂载必须由会话模型搬运源码（DSH 硬约束，非文档选择）**：`cordis_define` 的 `code.host` 只接受"函数体字符串"，宿主没有任何"从 URL 或路径加载"的参数（`cordis-host-runner/src/index.ts` L156-160 校验必填 + `precheckCode`）。所以无论源码来自本地文件（读入后回填）还是网络（拉取后回填），**都必须经模型完整重写一遍**——这一步绕不过，且源码越大越考验回填保真度。唯一能完全绕开的是把插件做成**静态包**（`cordis.patch.yml` 里 `insert: name:`），那条路不需要模型参与。
 - **换版必须在原会话内做**：宿主对 `kind:'existing'` 校验会话归属（`cordis-host-runner/src/index.ts` L179），跨会话追加必然失败 —— 手册里已写明。dsh-refix 自身不执行换版（`self-repair-forbidden`）。
 - **提示的真实渲染已在真实会话验证**（2026-09-16）：用一次性 overlay 在真实 host + 真实 agent loop + 真实模型上装载 V1.1-pre1 跑通，证据三层——① 宿主用真实常量请求版本源（`web.fetch intercepted`）；② 模型 reasoning 逐字引用提示文本与只存在于受控输入中的 nonce；③ **会话落盘记录**（`~/.dsh/sessions/<escaped-cwd>/session-<id>/session.v3.jsonl.zstd`）中该提示以 `type:"user/message"`、`source.plugin="dsh-refix"` 提交，`seq` 落在 `request/header` 之前（已进入模型请求面）。声明：验证中**只有"版本源这一跳"是受控替身**（overlay 覆盖了真 `ctx.web.fetch` 方法返回固定清单），其余路径全真实；源码逐字节未改写。
@@ -387,6 +392,7 @@ node --import "file://<DSH-checkout>/node_modules/tsx/dist/loader.mjs" ac/upd3.a
 | P3R 审查修复 | 16 缺陷 + 7 优化逐条核验处置（V1.05） | ✅ 验收通过 |
 | P3R2 复检修复 | 复检 4 缺陷 + 6 加固（V1.06） | ✅ 验收通过 |
 | P3R3 第三轮复检 | 结论更正裁决 + P-1 失盲 + 6 加固（V1.07） | ✅ 验收通过 |
+| V1.08 独立审查修复 | 报告A 六项缺陷逐条修复（I-1/I-2/I-3/I-4/I-5/I-7）+ N 系列 31 项结构化断言 | ✅ 验收通过 |
 | F6 阶段 1 更新提示 | 版本探测 + `agent/pre-step` 提示注入，**不含自动换版**（V1.1-pre1） | ⏳ 本地 33/33 AC 通过 + **真实会话渲染已验证**，未发布 |
 | F6 阶段 2 手册版 | 提示附执行手册（准确 `pluginId` / 回滚 `packageId` / 切换命令 / 跨会话约束）+ 外部文本隔离（V1.1-pre2） | ⏳ 本地 46/46 AC 通过 + p3r3 回归 PASS，未发布 |
 | F6 阶段 3 peer updater | 独立插件 `dsh-refix-updater`，宿主 `tools/pre-execute` 强制批准门 + sha256 一次性令牌；**非**全自动——每次都问（默认关闭） | ✅ 18/18 AC + **真机全链路验证**（批准/拒绝/无目标三路径，见"已知边界"）；浏览器按钮跳线未点（headless 以接听方等价模拟）；签名边界待确认；已发布 |

@@ -1,7 +1,7 @@
 {
   "name": "dsh-refix",
-  "version": "1.2.0",
-  "description": "dsh-refix p3.4 — DSH 自诊断·自修复·自迭代插件（静态 profile 层构建）",
+  "version": "1.3.0",
+  "description": "dsh-refix p3.7 — DSH 自诊断·自修复·自迭代插件（静态 profile 层构建）",
   "type": "module",
   "main": "lib/index.js",
   "exports": {
