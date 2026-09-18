@@ -1,22 +1,22 @@
 {
-  "latest": "p3.7",
-  "version": "V1.08",
-  "releaseTag": "V1.08",
+  "latest": "p3.8",
+  "version": "V1.10",
+  "releaseTag": "V1.10",
   "channel": "stable",
-  "file": "versions/refix-v1.08.js",
+  "file": "versions/refix-v1.10.js",
   "releasedAt": "2026-09-18",
   "scheme": "refix-pX.Y",
-  "notes": "V1.08 独立审查修复版（基线 V1.07）：I-1 CONTRACT补invoke / I-2 report走patrol检测路径不吞diff / I-3 U-7身份反查回灌 / I-5 cancelled与failed分账 / I-7 去重键结构化+probeSkipped随retract清理",
+  "notes": "V1.10 Phase2 感知增强（基线 V1.08）：P1 F7主动告警（run-missing/host-method-error 经 agent/pre-step 主动注入，同症状会话期一次）+ P2 探针两级化（L1 health 调用面 → L2 结构面存活判定，消除无 health 插件 10 轮盲区）+ 继承 V1.08 全部修复（I-1/I-2/I-3/I-5/I-7）",
   "url": "https://github.com/ckk-09/dsh-refix",
   "static": {
-    "releaseTag": "V1.3",
-    "packageVersion": "1.3.0",
+    "releaseTag": "V1.4",
+    "packageVersion": "1.4.0",
     "channel": "stable",
-    "file": "deploy/static/dist/dsh-refix-1.3.0.tgz",
+    "file": "deploy/static/dist/dsh-refix-1.4.0.tgz",
     "releasedAt": "2026-09-18",
     "install": "dsh plugin --profile <profile> add <tgz 的本地路径或 URL>",
-    "sourcePlugin": "V1.08",
-    "sourceFile": "versions/refix-v1.08.js",
-    "notes": "静态包 V1.3（profile 层）：插件逻辑与 V1.08（自报 p3.7）一致，本次为内容修复发布，安全边界 B1~B6 与 V1.07 完全兼容。"
+    "sourcePlugin": "V1.10",
+    "sourceFile": "versions/refix-v1.10.js",
+    "notes": "静态包 V1.4（profile 层）：插件逻辑与 V1.10（自报 p3.8）一致 —— F7 主动告警 + 探针两级化 + 知识库导出/回填 + 同 Team 代修放行，并继承 V1.08 全部修复。"
   }
 }

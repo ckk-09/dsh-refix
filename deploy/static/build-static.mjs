@@ -149,7 +149,7 @@ const body = source.slice(applyAt + APPLY_OPEN.length, closing.index)
 
 // 体内容完整性探针：这些是这个插件"必须存在"的东西，被误删要在这里炸而不是在用户机器上炸。
 const defineToolSites = body.split('harness.defineTool(').length - 1
-assert(defineToolSites === 3, `expected 3 harness.defineTool( call sites, found ${defineToolSites}`)
+assert(defineToolSites === 5, `expected 5 harness.defineTool( call sites (V1.10: repair/report/patrol/export/restore), found ${defineToolSites}`)
 assert(body.includes('ctx.tools.register('), 'no ctx.tools.register( call')
 assert(body.includes('ctx.cordisInspect.register('), 'no ctx.cordisInspect.register( call')
 assert(body.includes('ctx.interval('), 'no ctx.interval( patrol registration')

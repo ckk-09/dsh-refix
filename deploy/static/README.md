@@ -4,20 +4,20 @@
 目的是**去掉"第 3 步必须贴一段挂载话术"和"源码必须经模型回填一次"这两个障碍**：
 装它不需要任何模型参与，装完即随 dsh 启动自动起来。
 
-> 源码是**同一个**：`versions/refix-v1.08.js`（V1.08 / p3.7）。
-> 本目录里的脚本只做「形态转换 + 验证」，不改插件逻辑 —— 插件体 654 行逐字节照搬。
+> 源码是**同一个**：`versions/refix-v1.10.js`（V1.10 / p3.8）。
+> 本目录里的脚本只做「形态转换 + 验证」，不改插件逻辑 —— 插件体 **852 行**逐字节照搬（V1.4 起；V1.3 是 654 行）。
 
-**当前发布：V1.3**（产物 `dist/dsh-refix-1.3.0.tgz`）。安装就一条命令：
+**当前发布：V1.4**（产物 `dist/dsh-refix-1.4.0.tgz`）。安装就一条命令：
 
 ```bash
-dsh plugin --profile web add https://raw.githubusercontent.com/ckk-09/dsh-refix/main/deploy/static/dist/dsh-refix-1.3.0.tgz
+dsh plugin --profile web add https://raw.githubusercontent.com/ckk-09/dsh-refix/main/deploy/static/dist/dsh-refix-1.4.0.tgz
 ```
 
 **两条版本线，别混**：
 
-- **V1.3** —— 静态包（本目录）的**发布线**，记在 `versions/manifest.json` 的 `static` 段；
-- **V1.08 / p3.7** —— 插件**逻辑**版本，源码是 `versions/refix-v1.08.js`。
-  V1.3 的插件体与它 **654 行逐字节相同**，随源码带上六项独立审查修复。
+- **V1.4** —— 静态包（本目录）的**发布线**，记在 `versions/manifest.json` 的 `static` 段；
+- **V1.10 / p3.8** —— 插件**逻辑**版本，源码是 `versions/refix-v1.10.js`。
+  V1.4 的插件体与它 **852 行逐字节相同**（5 个 `harness.defineTool` 调用点），随源码带上 V1.08 六项独立审查修复 + Phase 2 四项能力。
 
 构建器据此分开取值：`pkgVersion` 优先读 `manifest.static.packageVersion`，插件自报版本仍从源码里抠。
 
@@ -32,7 +32,7 @@ dsh plugin --profile web add https://raw.githubusercontent.com/ckk-09/dsh-refix/
 | `boot-test.mjs` | 真机启动验证：隔离 profile 起真 dsh，**不过滤**日志抓就绪行 / 降级告警 / 树加载失败 |
 | `dump-config-check.mjs` | 配置树探针：`--dump-config` 离线核对 `- id: <x>` 计数，专治 `duplicate loader entry id` |
 | `packages/dsh-refix/` | 构建产物（**入库**：根 `package.json` 与 `packages/` 子包是 DSH 插件市场的 CI 拾取面） |
-| `dist/dsh-refix-<ver>.tgz` | **发布物**（入库）—— "一行命令安装"的载体。当前为 `dsh-refix-1.3.0.tgz` |
+| `dist/dsh-refix-<ver>.tgz` | **发布物**（入库）—— "一行命令安装"的载体。当前为 `dsh-refix-1.4.0.tgz` |
 
 ---
 
@@ -66,7 +66,7 @@ node deploy/static/boot-test.mjs --profile <隔离profile>
 
 ```bash
 # 装（tgz 形式，推荐；<profile> 换成你的 profile 名，一般就是 web）
-dsh plugin --profile <profile> add https://raw.githubusercontent.com/ckk-09/dsh-refix/main/deploy/static/dist/dsh-refix-1.3.0.tgz
+dsh plugin --profile <profile> add https://raw.githubusercontent.com/ckk-09/dsh-refix/main/deploy/static/dist/dsh-refix-1.4.0.tgz
 
 # 装（本地 tgz：网络到 raw.githubusercontent.com 不通时，先下下来再装）
 dsh plugin --profile <profile> add "<本地 tgz 的绝对路径>"
@@ -85,7 +85,7 @@ dsh plugin --profile <profile> remove dsh-refix
 **装好的标志** —— 启动 dsh 后控制台出现这一行（宿主输出，不是模型说的话）：
 
 ```
-dsh-refix p3.7 ready; contract OK (兼容性自检通过); baseline plugins: N; patrol every 15000ms
+dsh-refix p3.8 ready; contract OK (兼容性自检通过); baseline plugins: N; patrol every 15000ms
 ```
 
 ⚠️ 用 `--profile web` 前建议先确认目标 profile 名；想试又不想动自己的配置，可用隔离 profile：
@@ -133,7 +133,7 @@ dsh --profile <任意新名字> --from-default-profile web --dump-config   # 造
   **不要把 tgz 哈希写进文档做校验**。要校验就校验**解包后的 `lib/index.js`**：
   它与 `versions/refix-v1.08.js` 的源哈希一一对应（`--check` 会打印两者）。
 - 已冻结的源文件 sha256 见 `TECHNICAL.md`；`lib/index.js` 的字节数随构建器逻辑与头部注释变化而变化
-  （两级解析后 40725B，V1.2 加发布版本行后 40771B，V1.3 = 43574B，最初是 38797B），因此**它只与同一构建器版本可比**。
+  （两级解析后 40725B，V1.2 加发布版本行后 40771B，V1.3 = 43574B，V1.4 = 55840B（V1.10 起 5 个工具），最初是 38797B），因此**它只与同一构建器版本可比**。
 
 ---
 

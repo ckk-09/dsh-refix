@@ -3,8 +3,8 @@
  * dsh-refix 静态包离线冒烟测试。
  *
  * 不启动 dsh，用一份**假 ctx**（实现 cordis ctx 的最小可用面）驱动静态包模块，
- * 断言它在真实 ctx 语义下能完成挂载：兼容性自检通过、3 个工具注册、inspect provider 注册、
- * 15s 巡检定时器、就绪行打印，并且工具真的能执行。
+ * 断言它在真实 ctx 语义下能完成挂载：兼容性自检通过、5 个工具注册（V1.10 起 +export/restore）、
+ * inspect provider 注册、15s 巡检定时器、就绪行打印，并且工具真的能执行。
  *
  * 两种模式：
  *   默认           —— 走真 defineTool 路径（L1 裸说明符或 L2 投影目录命中，应无降级告警）
@@ -16,16 +16,37 @@
  *   node deploy/static/test-static.mjs --fallback [模块绝对路径]
  */
 
-import { copyFileSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
+import { copyFileSync, existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { pathToFileURL } from 'node:url'
 import { join, resolve } from 'node:path'
 import { tmpdir } from 'node:os'
 
 const argv = process.argv.slice(2)
 const FALLBACK = argv.includes('--fallback')
-const modulePath = resolve(argv.find(a => !a.startsWith('--')) ?? join(
-  import.meta.dirname, 'dist', 'dsh-refix', 'lib', 'index.js',
-))
+
+// 构建产物入口。按「当前布局 → 历史布局」排序：
+//   packages/dsh-refix   —— 现行落点（awesome-dsh-plugin CI 要从 packages/ 子包抓 dsh.bundle）
+//   deploy/static/dist   —— df843d2 之前的旧落点，保留只为兼容老检出
+// 旧版这里写死的是第二条，导致布局变更后 `test-static` 不带参数直接 ERR_MODULE_NOT_FOUND。
+const BUNDLE_CANDIDATES = [
+  join(import.meta.dirname, '..', '..', 'packages', 'dsh-refix', 'lib', 'index.js'),
+  join(import.meta.dirname, 'dist', 'dsh-refix', 'lib', 'index.js'),
+]
+const explicit = argv.find((a) => !a.startsWith('--'))
+let modulePath
+if (explicit) {
+  modulePath = resolve(explicit)
+} else {
+  const hit = BUNDLE_CANDIDATES.find((p) => existsSync(p))
+  if (!hit) {
+    console.error('test-static: FAIL — 找不到构建产物入口，已尝试：')
+    for (const p of BUNDLE_CANDIDATES) console.error('  - ' + p)
+    console.error('  先跑 `node deploy/static/build-static.mjs` 生成产物；')
+    console.error('  或显式传入入口：node deploy/static/test-static.mjs <模块绝对路径>')
+    process.exit(2)
+  }
+  modulePath = hit
+}
 
 let failures = 0
 let checks = 0
@@ -176,10 +197,10 @@ ok(CALLS.events.includes('cordis/dynamic-package') && CALLS.events.includes('cor
   '订阅 cordis/dynamic-package + cordis/dynamic-retract', CALLS.events)
 
 const toolNames = CALLS.tools.map(t => t.name)
-ok(eq(toolNames, ['refix_repair', 'refix_report', 'refix_patrol']), '注册 3 个工具且顺序正确', toolNames)
+ok(eq(toolNames, ['refix_repair', 'refix_report', 'refix_patrol', 'refix_export', 'refix_restore']), '注册 5 个工具且顺序正确（V1.10: +export/restore）', toolNames)
 
 const readyLine = READY_LINES.find(line => line.includes('ready; contract'))
-ok(readyLine !== undefined && readyLine.includes('dsh-refix p3.7 ready; contract OK (兼容性自检通过)'),
+ok(readyLine !== undefined && readyLine.includes('dsh-refix p3.8 ready; contract OK (兼容性自检通过)'),
   '就绪行含 "contract OK (兼容性自检通过)"', readyLine)
 ok(readyLine !== undefined && readyLine.includes('patrol every 15000ms'), '就绪行含 "patrol every 15000ms"', readyLine)
 
@@ -196,6 +217,7 @@ const EXPECTED_PARAMS = {
     },
     required: ['pluginId'],
   },
+  // refix_restore 不进逐字段比对（兜底编译器对嵌套 object 产出与真路径不同形），见下方特例断言
   refix_patrol: {
     type: 'object',
     properties: {
@@ -213,6 +235,13 @@ for (const tool of CALLS.tools) {
     ok(eq(tool.parameters, EXPECTED_PARAMS[tool.name]), `${tool.name}: 参数 Schema 与 DSL 期望值逐字段一致`, tool.parameters)
   }
 }
+// refix_restore 兜底例外：兜底编译器对嵌套 object 的产出（properties:{}）与真路径不同形，
+// 只断言语义（snapshot 必填 + 对象类型），不逐字段比对。
+const restoreTool = CALLS.tools.find(t => t.name === 'refix_restore')
+if (FALLBACK) {
+  ok(restoreTool.parameters?.type === 'object' && restoreTool.parameters?.required?.includes('snapshot'),
+    '兜底模式：refix_restore 保留 snapshot 必填语义', restoreTool.parameters)
+}
 
 // ── 断言：工具真的能执行 ───────────────────────────────────────────────────
 const report = CALLS.tools.find(t => t.name === 'refix_report')
@@ -220,7 +249,8 @@ const patrol = CALLS.tools.find(t => t.name === 'refix_patrol')
 
 const reportOut = await report.execute({}, {})
 const reportJson = JSON.parse(reportOut)
-ok(reportJson.version === 'p3.7', 'refix_report 返回 version p3.7', reportJson.version)
+ok(reportJson.version === 'p3.8', 'refix_report 返回 version p3.8', reportJson.version)
+ok(Array.isArray(reportJson.alerts?.alerted) && typeof reportJson.alerts.pending === 'number', 'refix_report 携带 F7 alerts 视图', reportJson.alerts)
 ok(reportJson.contract?.ok === true && eq(reportJson.contract.missing, []), 'refix_report 自检 contract.ok === true', reportJson.contract)
 // V1.08（I-2）起 refix_report 走 patrol('report') 检测路径：report 本身就是一轮真实检测
 // （先判定后推进基线），与 refix_patrol 手动巡检同语义计数，故首轮 report 后 patrolCount === 1。
@@ -252,7 +282,7 @@ const degradation = ERROR_LINES.find(line => line.includes('[refix] 静态包：
   && line.includes('改用内置 schema 编译器'))
 if (FALLBACK) {
   ok(degradation !== undefined, '兜底模式：打印了 @deepseek-ai/dsh-tools 不可达告警', ERROR_LINES)
-  ok(toolNames.length === 3, '兜底模式：3 个工具仍全部注册（降级不致命）', toolNames)
+  ok(toolNames.length === 5, '兜底模式：5 个工具仍全部注册（降级不致命）', toolNames)
 } else {
   ok(degradation === undefined, '真路径：没有降级告警（harness 用的是宿主真 defineTool）', degradation)
 }

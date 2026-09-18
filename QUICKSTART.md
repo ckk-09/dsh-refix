@@ -2,9 +2,9 @@
 
 > 目标：**一条命令装好**，之后由 dsh 里的模型替你照看它。
 >
-> 适用版本：静态包 **V1.3**（`dsh-refix-1.3.0.tgz`）—— 插件逻辑同 V1.08（自报 `p3.7`）。
+> 适用版本：静态包 **V1.4**（`dsh-refix-1.4.0.tgz`）—— 插件逻辑同 V1.10（自报 `p3.8`）。
 > 本页只讲"怎么装上"；工具参数、返回值含义、哈希核对、回退、全部坑 → 见 **[TECHNICAL.md](./TECHNICAL.md) 的「使用者参考」一节**。
-> 本页命令与结论于 2026-09-16 → 09-18 在本机实跑验证（离线 34/34 + 35/35、四次真机启动 PASS）。
+> 本页命令与结论于 2026-09-16 → 09-18 在本机实跑验证（离线 `test-static` 41/41 + `--fallback` 43/43、`build-static --check` OK、真机启动 PASS）。
 
 ---
 
@@ -16,7 +16,7 @@
 ### 第 1 步 · 装
 
 ```bash
-dsh plugin --profile web add https://raw.githubusercontent.com/ckk-09/dsh-refix/main/deploy/static/dist/dsh-refix-1.3.0.tgz
+dsh plugin --profile web add https://raw.githubusercontent.com/ckk-09/dsh-refix/main/deploy/static/dist/dsh-refix-1.4.0.tgz
 ```
 
 - `web` 是 profile 名；不确定就用 `web`。
@@ -31,7 +31,7 @@ dsh plugin --profile web add https://raw.githubusercontent.com/ckk-09/dsh-refix/
 ### 第 3 步 · 看到这一行就成了
 
 ```
-dsh-refix p3.7 ready; contract OK (兼容性自检通过); baseline plugins: N; patrol every 15000ms
+dsh-refix p3.8 ready; contract OK (兼容性自检通过); baseline plugins: N; patrol every 15000ms
 ```
 
 看到它就说明插件已起来、15s 巡检已开始。
@@ -66,16 +66,16 @@ dsh web --dump-config | findstr "id: tool-cordis"
 Windows PowerShell：
 
 ```powershell
-iwr -Uri https://raw.githubusercontent.com/ckk-09/dsh-refix/main/versions/refix-v1.08.js -OutFile "$env:USERPROFILE\refix-v1.08.js"
+iwr -Uri https://raw.githubusercontent.com/ckk-09/dsh-refix/main/versions/refix-v1.10.js -OutFile "$env:USERPROFILE\refix-v1.10.js"
 ```
 
 或系统自带 curl：
 
 ```bash
-curl.exe -fsSL -o "%USERPROFILE%\refix-v1.08.js" https://raw.githubusercontent.com/ckk-09/dsh-refix/main/versions/refix-v1.08.js
+curl.exe -fsSL -o "%USERPROFILE%\refix-v1.10.js" https://raw.githubusercontent.com/ckk-09/dsh-refix/main/versions/refix-v1.10.js
 ```
 
-记下落盘路径（例：`C:\Users\你的名字\refix-v1.08.js`）。直连失败就给终端挂代理。
+记下落盘路径（例：`C:\Users\你的名字\refix-v1.10.js`）。直连失败就给终端挂代理。
 
 ### 第 3 步 · 粘给 dsh（复制这一段）
 
@@ -100,11 +100,12 @@ curl.exe -fsSL -o "%USERPROFILE%\refix-v1.08.js" https://raw.githubusercontent.c
 8. 巡检到可修症状（run-missing / host-method-error）时直接调 refix_repair 修好，
    然后把 outcome 和做了什么告诉我；需要我点批准的，明确说"去界面点同意"
 9. 遇到 manual-only 或未收录症状，只报告，不要自己写修复代码
+10. 我说"把病历导出/搬过去"时：用 refix_export 导出 JSON，需要时用 refix_restore 回填
 ```
 
 **装好的标志**：和方式 A 是同一行就绪行（见上）。
 
-> **顺手核一个数**：V1.08 的源码是 **37013** 字节 —— 第 3 步第 5 条让模型回报的字节数就该是这个。对不上，或想核对 sha256 → TECHNICAL.md「使用者参考 → 自证」。
+> **顺手核一个数**：V1.10 的源码是 **49279** 字节 —— 第 3 步第 5 条让模型回报的字节数就该是这个。对不上，或想核对 sha256 → TECHNICAL.md「使用者参考 → 自证」。
 
 ---
 
@@ -114,7 +115,7 @@ curl.exe -fsSL -o "%USERPROFILE%\refix-v1.08.js" https://raw.githubusercontent.c
 |---|---|
 | 每 15s 巡检 + 记账 | **插件自己**，真自动 |
 | 出报告、执行修复 | 授权给了**会话模型**；你开口就行，不用记工具名 |
-| 主动弹消息给你 | **不会**。插件不主动说话；想知道情况就问模型 |
+| 主动弹消息给你 | **V1.10 起会**（F7 主动告警）：巡检到 `run-missing` / `host-method-error` 时，会在你下一轮对话时随请求**注入一条修复指引**；同一插件同一症状每会话只提醒一次，且**永不自动换版**。其余情况仍不主动说话。 |
 
 ⚠️ **方式 B（动态包）在 dsh 重启后要重新装**（话术再粘一次）：动态插件的状态全在内存里，进程一重启就清零。
 **方式 A（静态包）不受影响** —— 它跟着 profile 落盘，重启后自动加载。
@@ -127,7 +128,7 @@ curl.exe -fsSL -o "%USERPROFILE%\refix-v1.08.js" https://raw.githubusercontent.c
 
 **装完启动后没看到就绪行** → 先确认装到了**你正在启动的那个 profile**（`dsh plugin --profile X add` 的 `X` 要和 `dsh --profile X` 对得上）。再看控制台有没有 `[refix] 静态包：未能解析 …`：那行只是说明宿主工具包没解析到、schema 走了内置编译器，**不影响巡检**；要消除它，确认 `~/.dsh/profiles/node_modules/@deepseek-ai/dsh-tools` 存在。
 
-**模型说"我读不到这个文件"**（方式 B）→ 给它**完整绝对路径**，别用相对路径。或者干脆不下载：把第 3 步第 1 条换成——"用 web_fetch 抓 `https://raw.githubusercontent.com/ckk-09/dsh-refix/main/versions/refix-v1.08.js`，丢掉返回内容第一行的 `Fetched <url> (HTTP 200)` 头部（以及任何截断提示行），余下全文原样作为 code.host 传入"。
+**模型说"我读不到这个文件"**（方式 B）→ 给它**完整绝对路径**，别用相对路径。或者干脆不下载：把第 3 步第 1 条换成——"用 web_fetch 抓 `https://raw.githubusercontent.com/ckk-09/dsh-refix/main/versions/refix-v1.10.js`，丢掉返回内容第一行的 `Fetched <url> (HTTP 200)` 头部（以及任何截断提示行），余下全文原样作为 code.host 传入"。
 
 **`dsh web` 起不来了，报 `duplicate loader entry id: xxx`** → 你在 `cordis.patch.yml` 里 insert 了一个**已经被某个 bundle 层 insert 过**的 id（最典型就是 `cordis-host-runner`）。把重复的那几行删掉即可，dsh 从不改写你的配置文件。定位：
 
@@ -150,7 +151,7 @@ dsh web --dump-config | findstr "id: <那个 id>"
 ## 相关文档
 
 - [TECHNICAL.md](./TECHNICAL.md) —— 机制、硬边界、**使用者参考**（工具参数 / 返回值全表 / 自证与哈希 / 回退 / 五个坑）、验收矩阵、阶段状态
-- [README.md](./README.md) —— 项目介绍与版本选择（V1.3 静态包 / V1.0x 动态包 / V1.1-pre 前瞻线）
+- [README.md](./README.md) —— 项目介绍与版本选择（V1.4 静态包 / V1.0x 动态包 / V1.1-pre 前瞻线）
 - [deploy/static/README.md](./deploy/static/README.md) —— 静态包怎么构建、怎么自己验证、tgz 怎么分发
 - [versions/](./versions/) —— 全部插件版本源码
 - [reports/](./reports/) —— 各阶段验收报告（P0~P4 / P3R / P3R2 / P3R3）

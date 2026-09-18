@@ -29,13 +29,13 @@
 **一条命令，装完即用** —— 不需要下载源码，也不需要贴任何话术：
 
 ```bash
-dsh plugin --profile web add https://raw.githubusercontent.com/ckk-09/dsh-refix/main/deploy/static/dist/dsh-refix-1.3.0.tgz
+dsh plugin --profile web add https://raw.githubusercontent.com/ckk-09/dsh-refix/main/deploy/static/dist/dsh-refix-1.4.0.tgz
 ```
 
 然后正常启动 dsh，插件**随启动自动加载**。控制台出现这一行就成了：
 
 ```
-dsh-refix p3.7 ready; contract OK (兼容性自检通过); baseline plugins: N; patrol every 15000ms
+dsh-refix p3.8 ready; contract OK (兼容性自检通过); baseline plugins: N; patrol every 15000ms
 ```
 
 想立刻问一句，就说——
@@ -51,11 +51,12 @@ dsh-refix p3.7 ready; contract OK (兼容性自检通过); baseline plugins: N; 
 
 ### ✅ 稳定版（推荐所有人使用）
 
-**静态包（V1.3，默认推荐）** —— 一条命令装、装完随 dsh 启动自动加载，全程不需要模型介入：
+**静态包（V1.4，默认推荐）** —— 一条命令装、装完随 dsh 启动自动加载，全程不需要模型介入：
 
 | 定版号 | 产物 | 一句话说明 |
 |--------|------|-----------|
-| **V1.3** | `deploy/static/dist/dsh-refix-1.3.0.tgz` | **当前推荐：装它只要一条命令。插件逻辑与 V1.08（p3.7）逐字节相同，随源码带上六项独立审查修复。** |
+| **V1.4** | `deploy/static/dist/dsh-refix-1.4.0.tgz` | **当前推荐：装它只要一条命令。插件逻辑与 V1.10（p3.8）逐字节相同，随源码带上六项独立审查修复 + Phase 2 四项新能力。** |
+| V1.3 | `deploy/static/dist/dsh-refix-1.3.0.tgz` | 上一版静态包（插件逻辑 = V1.08 / p3.7）。 |
 | V1.2 | `deploy/static/dist/dsh-refix-1.2.0.tgz` | 首个静态包发布——改的是交付形态，不是功能（插件逻辑 = V1.07 / p3.4）。 |
 
 **动态包源码（V1.0x 线）** —— 需要在会话里热切换 / 一键回退版本时用：
@@ -68,13 +69,14 @@ dsh-refix p3.7 ready; contract OK (兼容性自检通过); baseline plugins: N; 
 | V1.04 | `versions/refix-v1.04.js` | 会记病历（知识库复用） |
 | V1.05 | `versions/refix-v1.05.js` | 第一轮安全大修 |
 | V1.06 | `versions/refix-v1.06.js` | 第二轮复检修复 |
-| **V1.08** | `versions/refix-v1.08.js` | **独立审查修复版（当前推荐）：六项缺陷逐条修复 —— V1.3 静态包就是它的静态形态** |
+| **V1.10** | `versions/refix-v1.10.js` | **Phase 2（当前推荐）：F7 主动告警 + 探针两级化 + 知识库导出/回填 + 同 Team 代修放行，并继承 V1.08 全部修复 —— V1.4 静态包就是它的静态形态** |
+| V1.08 | `versions/refix-v1.08.js` | 独立审查修复版：六项缺陷逐条修复 —— V1.3 静态包就是它的静态形态 |
 | V1.07 | `versions/refix-v1.07.js` | 第三轮复检修复 —— V1.0x 的上一版（V1.2 静态包是它的静态形态） |
 
 ### ⚠️ 前瞻版本（尝鲜专用，慎重选择升级安装）
 
 > **🚧 警告：以下是 V1.1 的预览版（pre），包含实验性改动与潜在的破坏性变更，随时可能调整甚至回退。**
-> **不确定就别用；要试，请先看完 [TECHNICAL.md](./TECHNICAL.md) 的「已知边界」一节。稳定永远选 [V1.3](#-稳定版推荐所有人使用)（静态包）。**
+> **不确定就别用；要试，请先看完 [TECHNICAL.md](./TECHNICAL.md) 的「已知边界」一节。稳定永远选 [V1.4](#-稳定版推荐所有人使用)（静态包）。**
 >
 > 另外：**更新提示只报稳定线**。装了 pre 版不会被自动催升级，想装哪个 pre 版请自己指名文件——这个项目不会把实验版塞给普通用户。
 
@@ -82,6 +84,7 @@ dsh-refix p3.7 ready; contract OK (兼容性自检通过); baseline plugins: N; 
 |--------|------|-----------|---------|
 | V1.1-pre1 | `versions/refix-v1.1-pre1.js` | 更新探测 + 对话内更新提示 | 实验性功能，未正式发布 |
 | V1.1-pre2 | `versions/refix-v1.1-pre2.js` | 更新提示附带**可执行手册** + 外部文本隔离 | 同上 |
+| V1.1-pre3 | `versions/refix-v1.1-pre3.js` | 稳定线全部能力 + F6 更新探测；由 `tools/gen-pre.mjs` 从 V1.10 **单源生成，勿手改** | 同上 |
 | V1.1-pre-updater | `versions/refix-updater-v1.1-pre.js` | 独立的"自动装新版"助手（**默认关闭**，每次都需你点批准） | **这是全仓库唯一会"从网络拉代码并执行"的能力**，含实验性破坏，慎重启用 |
 
 ## 它不会做什么？（免得你担心）
@@ -137,13 +140,13 @@ Imagine several dynamic plugins running inside your DSH session. One crashes, an
 **One command, done** — no source download, no wording to paste:
 
 ```bash
-dsh plugin --profile web add https://raw.githubusercontent.com/ckk-09/dsh-refix/main/deploy/static/dist/dsh-refix-1.3.0.tgz
+dsh plugin --profile web add https://raw.githubusercontent.com/ckk-09/dsh-refix/main/deploy/static/dist/dsh-refix-1.4.0.tgz
 ```
 
 Then start dsh as usual; the plugin **loads automatically on every boot**. When you see this line, it is up:
 
 ```
-dsh-refix p3.7 ready; contract OK (兼容性自检通过); baseline plugins: N; patrol every 15000ms
+dsh-refix p3.8 ready; contract OK (兼容性自检通过); baseline plugins: N; patrol every 15000ms
 ```
 
 To ask for a check right away:
@@ -159,11 +162,12 @@ Tool parameters, the `outcome` / `phase` / `reason` tables, hash verification, r
 
 ### ✅ Stable line (recommended for everyone)
 
-**Static bundle (V1.3, the default)** — one command to install, loads automatically with dsh on every boot, no model involved at any point:
+**Static bundle (V1.4, the default)** — one command to install, loads automatically with dsh on every boot, no model involved at any point:
 
 | Release | Artifact | In one line |
 |---------|----------|-------------|
-| **V1.3** | `deploy/static/dist/dsh-refix-1.3.0.tgz` | **current recommendation: installing it is a single command. Plugin logic is byte-for-byte identical to V1.08 (p3.7) and carries six independent review fixes.** |
+| **V1.4** | `deploy/static/dist/dsh-refix-1.4.0.tgz` | **current recommendation: a single command to install. Plugin logic is byte-for-byte identical to V1.10 (p3.8) and carries the six independent-review fixes plus the four Phase 2 capabilities.** |
+| V1.3 | `deploy/static/dist/dsh-refix-1.3.0.tgz` | previous static release (plugin logic = V1.08 / p3.7). |
 | V1.2 | `deploy/static/dist/dsh-refix-1.2.0.tgz` | first static-bundle release — changes the delivery form, not the features (plugin logic = V1.07 / p3.4). |
 
 **Dynamic-package sources (V1.0x line)** — use these when you want to hot-swap or roll back versions inside a session:
@@ -176,13 +180,14 @@ Tool parameters, the `outcome` / `phase` / `reason` tables, hash verification, r
 | V1.04 | `versions/refix-v1.04.js` | keeps records (knowledge base) |
 | V1.05 | `versions/refix-v1.05.js` | first security hardening pass |
 | V1.06 | `versions/refix-v1.06.js` | second review-fix pass |
-| **V1.08** | `versions/refix-v1.08.js` | **independent-review fix pass (current recommendation): six defects fixed — V1.3 is its static form** |
+| **V1.10** | `versions/refix-v1.10.js` | **Phase 2 (current recommendation): F7 proactive alerts + two-level probe + knowledge export/restore + same-team repair — inherits all V1.08 fixes; V1.4 is its static form** |
+| V1.08 | `versions/refix-v1.08.js` | independent-review fix pass: six defects fixed — V1.3 is its static form |
 | V1.07 | `versions/refix-v1.07.js` | third review-fix pass — previous release of the V1.0x line (V1.2 is its static form) |
 
 ### ⚠️ Preview line (experimental — upgrade with caution)
 
 > **🚧 Warning: the V1.1-pre series is a preview of V1.1 with experimental, potentially breaking changes, subject to change or rollback at any time.**
-> **If unsure, stay on [V1.3](#-stable-line-recommended-for-everyone) (static bundle). If you must try, read the "Known limits" section of [TECHNICAL.md](./TECHNICAL.md) first.**
+> **If unsure, stay on [V1.4](#-stable-line-recommended-for-everyone) (static bundle). If you must try, read the "Known limits" section of [TECHNICAL.md](./TECHNICAL.md) first.**
 >
 > Also: **update notices only ever report the stable line.** Having a pre build installed will never nag you to upgrade, and if you want a specific pre version, name the file yourself — this project does not push experimental builds onto ordinary users.
 
@@ -190,6 +195,7 @@ Tool parameters, the `outcome` / `phase` / `reason` tables, hash verification, r
 |---------|------|-----------|-----------|
 | V1.1-pre1 | `versions/refix-v1.1-pre1.js` | update probe + in-conversation update notice | experimental, unreleased |
 | V1.1-pre2 | `versions/refix-v1.1-pre2.js` | notice carries a **step-by-step manual** + external-text isolation | same |
+| V1.1-pre3 | `versions/refix-v1.1-pre3.js` | every capability of the stable line + F6 update probe; **generated** by `tools/gen-pre.mjs` from V1.10 — do not hand-edit | same |
 | V1.1-pre-updater | `versions/refix-updater-v1.1-pre.js` | separate "install new version" helper (**off by default**, asks for approval every time) | **the only capability in this repo that fetches code from the network and executes it** — experimental, potentially breaking; enable with care |
 
 ## What it will NOT do (so you can relax)

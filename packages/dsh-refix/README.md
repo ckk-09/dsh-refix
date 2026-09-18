@@ -1,7 +1,7 @@
-# dsh-refix v1.3.0（静态包）
+# dsh-refix v1.4.0（静态包）
 
 DSH 静态 profile 层构建，由 `deploy/static/build-static.mjs` 自动生成。
-生成源：`versions/refix-v1.08.js`（sha256 `0cf42e50428fef2e…`）。
+生成源：`versions/refix-v1.10.js`（sha256 `e1892c7622fa2899…`）。
 
 ## 装（一条命令）
 
@@ -19,7 +19,7 @@ dsh plugin --profile web add <本目录的绝对路径>
 dsh 控制台出现：
 
 ```
-dsh-refix p3.7 ready; contract OK (兼容性自检通过); baseline plugins: N; patrol every 15000ms
+dsh-refix p3.8 ready; contract OK (兼容性自检通过); baseline plugins: N; patrol every 15000ms
 ```
 
 ## 边界（与动态包一致）
